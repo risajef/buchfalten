@@ -1,0 +1,844 @@
+function runAnalysis(image, options) {
+  const { columns, bookHeight, darkThreshold, alphaThreshold } = options;
+  const canvas = analysisCanvas;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  const width = image.naturalWidth || image.width;
+  const height = image.naturalHeight || image.height;
+
+  canvas.width = width;
+  canvas.height = height;
+  ctx.clearRect(0, 0, width, height);
+  ctx.drawImage(image, 0, 0, width, height);
+
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const thresholds = { darkThreshold, alphaThreshold };
+  const activeRange = computeActiveRange(imageData, thresholds);
+  const rawColumns = sliceColumns(imageData, columns, thresholds, activeRange);
+  const pxToMm = bookHeight / height;
+  const enriched = normalizeSegments(rawColumns, pxToMm, height);
+  const balanced = balanceSegments(enriched);
+
+  state.columns = balanced;
+  state.meta = {
+    heightPx: height,
+    widthPx: activeRange?.width || width,
+    originalWidthPx: width,
+    bookHeightMm: bookHeight,
+    pxToMm,
+    activeRange,
+  };
+
+  renderResults();
+  maybeAutoPreview();
+}
+
+function sliceColumns(imageData, columnCount, thresholds, activeRange) {
+  const { data, width, height } = imageData;
+  const { darkThreshold, alphaThreshold } = thresholds;
+  const range = activeRange || { start: 0, end: width - 1, width };
+  const columnWidth = range.width / columnCount;
+  const result = [];
+
+  for (let c = 0; c < columnCount; c += 1) {
+    const xStart = Math.max(0, Math.floor(range.start + c * columnWidth));
+    const rawEnd = Math.floor(range.start + (c + 1) * columnWidth) - 1;
+    const xEnd = Math.max(xStart, Math.min(range.end, rawEnd));
+    const segments = [];
+    let active = false;
+    let startY = 0;
+
+    for (let y = 0; y < height; y += 1) {
+      let rowHasInk = false;
+
+      for (let x = xStart; x <= xEnd; x += 1) {
+        const idx = (y * width + x) * 4;
+        const r = data[idx];
+        const g = data[idx + 1];
+        const b = data[idx + 2];
+        const a = data[idx + 3];
+        if (a < alphaThreshold) {
+          continue;
+        }
+        const brightness = (r + g + b) / 3;
+        if (brightness <= darkThreshold) {
+          rowHasInk = true;
+          break;
+        }
+      }
+
+      if (rowHasInk && !active) {
+        active = true;
+        startY = y;
+      }
+
+      if (!rowHasInk && active) {
+        active = false;
+        segments.push({ startPx: startY, endPx: y - 1 });
+      }
+    }
+
+    if (active) {
+      segments.push({ startPx: startY, endPx: height - 1 });
+    }
+
+    result.push({
+      columnIndex: c + 1,
+      xStart,
+      xEnd,
+      segments,
+    });
+  }
+
+  return result;
+}
+
+function computeActiveRange(imageData, thresholds) {
+  const { data, width, height } = imageData;
+  const { darkThreshold, alphaThreshold } = thresholds;
+  let minX = width;
+  let maxX = -1;
+
+  for (let x = 0; x < width; x += 1) {
+    let columnHasInk = false;
+    for (let y = 0; y < height; y += 1) {
+      const idx = (y * width + x) * 4;
+      const r = data[idx];
+      const g = data[idx + 1];
+      const b = data[idx + 2];
+      const a = data[idx + 3];
+      if (a < alphaThreshold) {
+        continue;
+      }
+      const brightness = (r + g + b) / 3;
+      if (brightness <= darkThreshold) {
+        columnHasInk = true;
+        break;
+      }
+    }
+    if (columnHasInk) {
+      if (x < minX) {
+        minX = x;
+      }
+      if (x > maxX) {
+        maxX = x;
+      }
+    }
+  }
+
+  if (maxX === -1) {
+    return { start: 0, end: width - 1, width };
+  }
+
+  const padding = Math.max(1, Math.round(width * 0.002));
+  const start = Math.max(0, minX - padding);
+  const end = Math.min(width - 1, maxX + padding);
+  return {
+    start,
+    end,
+    width: end - start + 1,
+  };
+}
+
+function normalizeSegments(columns, pxToMm, heightPx) {
+  return columns.map((col) => {
+    const mappedSegments = col.segments.map((segment) => {
+      const startMm = +(segment.startPx * pxToMm).toFixed(1);
+      const endMm = +((segment.endPx + 1) * pxToMm).toFixed(1);
+      return {
+        ...segment,
+        startMm,
+        endMm,
+        heightMm: +(endMm - startMm).toFixed(1),
+        startPercent: +(((segment.startPx / heightPx) * 100).toFixed(2)),
+        endPercent: +((((segment.endPx + 1) / heightPx) * 100).toFixed(2)),
+      };
+    });
+    return { ...col, segments: mappedSegments };
+  });
+}
+
+function balanceSegments(columns) {
+  let segmentCursor = 0;
+  return columns.map((col) => {
+    if (!col.segments.length) {
+      return col;
+    }
+
+    const index = col.segments.length === 1 ? 0 : Math.floor(segmentCursor) % col.segments.length;
+    const selectedSegment = col.segments[index];
+    segmentCursor += 1;
+
+    return {
+      ...col,
+      segments: selectedSegment ? [selectedSegment] : [],
+    };
+  });
+}
+
+function renderResults() {
+  const totalFolds = state.columns.reduce(
+    (sum, col) => sum + col.segments.length,
+    0
+  );
+
+  if (!totalFolds) {
+    summaryLine.textContent = "Keine festen Farbbänder erkannt. Versuche, die Rauschschwelle zu senken.";
+    foldList.innerHTML = "";
+    pdfBtn.disabled = true;
+    resetPdfPreview();
+    renderBookPreview();
+    return;
+  }
+
+  const { heightPx, widthPx, bookHeightMm, originalWidthPx, activeRange } = state.meta;
+  const dimensionText =
+    originalWidthPx && originalWidthPx !== widthPx
+      ? `${widthPx}px cropped of ${originalWidthPx}px width × ${heightPx}px height`
+      : `${widthPx}×${heightPx} px`;
+  let summaryText = `${state.columns.length} Spalten • ${totalFolds} Falze • ${dimensionText} abgebildet auf ${bookHeightMm} mm Höhe`;
+  if (activeRange && originalWidthPx && originalWidthPx !== widthPx) {
+    const croppedLeft = activeRange.start;
+    const croppedRight = Math.max(0, originalWidthPx - (activeRange.end + 1));
+    summaryText += ` (entfernte ${croppedLeft}px linke / ${croppedRight}px rechte leere Ränder)`;
+  }
+  summaryLine.textContent = summaryText;
+
+  if (foldList) {
+    foldList.innerHTML = `
+      <article class="fold-card">
+        <p class="micro-copy">Die Faltanweisungen befinden sich in der PDF-Anleitung. Verwende "PDF-Anleitung erstellen", um eine druckbare Datei zu generieren und herunterzuladen.</p>
+      </article>
+    `;
+  }
+  pdfBtn.disabled = false;
+  renderBookPreview();
+}
+
+function maybeAutoPreview() {
+  if (!state.previewPending) {
+    return;
+  }
+  state.previewPending = false;
+  const hasSegments = state.columns.some((col) => col.segments.length);
+  if (!hasSegments) {
+    return;
+  }
+  const doc = createPdfDocument();
+  if (doc) {
+    previewPdf(doc);
+  }
+}
+const svgInput = document.getElementById("svgInput");
+const fileNameEl = document.getElementById("fileName");
+const columnInput = document.getElementById("columnInput");
+const heightInput = document.getElementById("heightInput");
+const thresholdInput = document.getElementById("thresholdInput");
+const alphaInput = document.getElementById("alphaInput");
+const plannerForm = document.getElementById("plannerForm");
+const summaryLine = document.getElementById("summaryLine");
+const foldList = document.getElementById("foldList");
+const pdfBtn = document.getElementById("downloadPdf");
+const artworkPreview = document.getElementById("artworkPreview");
+const analysisCanvas = document.getElementById("analysisCanvas");
+const bookPreviewCanvas = document.getElementById("bookPreviewCanvas");
+const previewStatus = document.getElementById("previewStatus");
+const pdfStatus = document.getElementById("pdfStatus");
+const pdfDownloadLink = document.getElementById("pdfDownloadLink");
+const textInput = document.getElementById("textInput");
+const fontSelect = document.getElementById("fontSelect");
+const fontSizeInput = document.getElementById("fontSizeInput");
+const paddingInput = document.getElementById("paddingInput");
+const textStatus = document.getElementById("textStatus");
+
+const state = {
+  columns: [],
+  meta: null,
+  previewPending: false,
+  textArtUrl: null,
+  textArtLabel: "",
+};
+
+let previewUrl;
+let previewUrlRevocable = false;
+let pdfPreviewUrl = null;
+let textRenderTimeout = null;
+let textRenderJobId = 0;
+
+svgInput?.addEventListener("change", () => {
+  const [file] = svgInput.files || [];
+  if (!file) {
+    if (state.textArtUrl) {
+      fileNameEl.textContent = state.textArtLabel || "Text artwork ready";
+      setPreviewSource(state.textArtUrl, { revocable: true });
+    } else {
+      fileNameEl.textContent = "No artwork selected yet";
+      setPreviewSource(null);
+    }
+    return;
+  }
+
+  clearTextArtSource();
+  const url = URL.createObjectURL(file);
+  setPreviewSource(url, { revocable: true });
+  fileNameEl.textContent = file.name;
+});
+
+const autoTextInputs = [
+  { el: textInput, event: "input", delay: 350 },
+  { el: fontSelect, event: "change", delay: 0 },
+  { el: fontSizeInput, event: "input", delay: 0 },
+  { el: paddingInput, event: "input", delay: 0 },
+];
+
+autoTextInputs.forEach(({ el, event, delay }) => {
+  if (!el) {
+    return;
+  }
+  el.addEventListener(event, () => scheduleTextArtworkRender(delay));
+});
+
+if ((textInput?.value || "").trim()) {
+  scheduleTextArtworkRender(0);
+}
+
+plannerForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  state.previewPending = false;
+
+  const source = resolveArtworkSource();
+  if (!source) {
+    summaryLine.textContent = "Lade zuerst eine SVG hoch oder rendere Textgrafiken.";
+    return;
+  }
+
+  const columns = Number(columnInput.value);
+  const bookHeight = Number(heightInput.value);
+  const darkThreshold = Number(thresholdInput.value);
+  const alphaThreshold = Number(alphaInput.value);
+
+  if (!Number.isFinite(columns) || columns <= 0) {
+    summaryLine.textContent = "Die Anzahl der Spalten muss eine positive Zahl sein.";
+    return;
+  }
+
+  summaryLine.textContent = "Analysiere Grafik...";
+  foldList.innerHTML = "";
+  state.previewPending = true;
+
+  const img = new Image();
+  img.onload = () => {
+    try {
+      runAnalysis(img, { columns, bookHeight, darkThreshold, alphaThreshold });
+    } catch (error) {
+      console.error(error);
+      summaryLine.textContent = "Verarbeitung fehlgeschlagen. Siehe Konsole für Details.";
+      state.previewPending = false;
+    } finally {
+      if (source.revoke) {
+        URL.revokeObjectURL(source.url);
+      }
+    }
+  };
+  img.onerror = () => {
+    summaryLine.textContent = "SVG konnte nicht gelesen werden. Bitte versuche eine andere Datei.";
+    state.previewPending = false;
+    if (source.revoke) {
+      URL.revokeObjectURL(source.url);
+    }
+  };
+  img.src = source.url;
+});
+
+pdfBtn?.addEventListener("click", () => {
+  if (!state.columns.length) {
+    return;
+  }
+
+  const doc = createPdfDocument();
+  if (doc) {
+    previewPdf(doc);
+  }
+});
+
+function renderBookPreview() {
+  if (!bookPreviewCanvas) {
+    return;
+  }
+
+  const ctx = bookPreviewCanvas.getContext("2d");
+  const width = bookPreviewCanvas.width;
+  const height = bookPreviewCanvas.height;
+  ctx.clearRect(0, 0, width, height);
+
+  drawFlatBook(ctx, width, height);
+
+  const activeSegments = state.columns
+    .map((col) => (col.segments[0] ? { columnIndex: col.columnIndex, segment: col.segments[0] } : null))
+    .filter(Boolean);
+
+  if (!activeSegments.length) {
+    if (previewStatus) {
+      previewStatus.textContent = "Schreibe Text oder lade eine SVG hoch, um Falze vorzuschauen.";
+    }
+    return;
+  }
+
+  if (previewStatus) {
+    previewStatus.textContent = state.textArtLabel ? `Vorschau ${state.textArtLabel}` : "Vorschau der Falzdichte";
+  }
+
+  const totalColumns = state.columns.length || 1;
+  activeSegments.forEach(({ columnIndex, segment }) => {
+    const ratio = totalColumns <= 1 ? 0.5 : (columnIndex - 1) / (totalColumns - 1);
+    drawFlatFold(ctx, ratio, segment, { width, height });
+  });
+}
+
+function drawFlatBook(ctx, width, height) {
+  const margin = 24;
+  ctx.fillStyle = "#f4ead2";
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.fillStyle = "#7b0f12";
+  ctx.fillRect(margin / 2, margin / 2, width - margin, height - margin);
+
+  const pageWidth = width - margin * 2;
+  const pageHeight = height - margin * 2;
+  const pageX = margin;
+  const pageY = margin;
+
+  const gradient = ctx.createLinearGradient(pageX, pageY, pageX + pageWidth, pageY);
+  gradient.addColorStop(0, "#f9f0d7");
+  gradient.addColorStop(0.5, "#fdf7df");
+  gradient.addColorStop(1, "#f9f0d7");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(pageX, pageY, pageWidth, pageHeight);
+
+  ctx.strokeStyle = "rgba(120, 83, 45, 0.4)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(pageX, pageY, pageWidth, pageHeight);
+
+  const spineX = width / 2;
+  ctx.strokeStyle = "rgba(120, 83, 45, 0.5)";
+  ctx.beginPath();
+  ctx.moveTo(spineX, pageY);
+  ctx.lineTo(spineX, pageY + pageHeight);
+  ctx.stroke();
+}
+
+function drawFlatFold(ctx, ratio, segment, viewport) {
+  const { width, height } = viewport;
+  const margin = 30;
+  const pageWidth = width - margin * 2;
+  const pageHeight = height - margin * 2;
+  const columnX = margin + ratio * pageWidth;
+
+  const startY = margin + clamp01(segment.startPercent / 100) * pageHeight;
+  const endY = margin + clamp01(segment.endPercent / 100) * pageHeight;
+  const foldWidth = Math.max(1, pageWidth * 0.004);
+
+  ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+  ctx.fillRect(columnX - foldWidth / 2, startY, foldWidth, endY - startY);
+  ctx.strokeStyle = "rgba(120, 83, 45, 0.35)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(columnX - foldWidth / 2, startY, foldWidth, endY - startY);
+}
+
+function clearTextArtSource() {
+  if (state.textArtUrl) {
+    if (state.textArtUrl !== previewUrl) {
+      URL.revokeObjectURL(state.textArtUrl);
+    }
+    state.textArtUrl = null;
+    state.textArtLabel = "";
+  }
+  if (textStatus) {
+    textStatus.textContent = "Tippe Text ein, um automatisch ein faltbares Wortzeichen zu erstellen.";
+  }
+}
+
+function scheduleTextArtworkRender(delay = 300) {
+  const wait = Math.max(0, Number.isFinite(delay) ? delay : 300);
+  if (textRenderTimeout) {
+    clearTimeout(textRenderTimeout);
+  }
+  textRenderTimeout = setTimeout(() => {
+    textRenderTimeout = null;
+    performTextArtworkRender();
+  }, wait);
+}
+
+async function performTextArtworkRender() {
+  const text = (textInput?.value || "").trim();
+  if (!text) {
+    clearTextArtSource();
+    const [file] = svgInput?.files || [];
+    if (file) {
+      fileNameEl.textContent = file.name;
+      const fallbackUrl = URL.createObjectURL(file);
+      setPreviewSource(fallbackUrl, { revocable: true });
+    } else {
+      fileNameEl.textContent = "Noch keine Grafik ausgewählt";
+      setPreviewSource(null);
+    }
+    return;
+  }
+
+  const fontFamily = fontSelect?.value || "Playfair Display";
+  const fontSize = clampNumber(Number(fontSizeInput?.value) || 160, 40, 260);
+  const paddingPercent = clampNumber(Number(paddingInput?.value) || 18, 5, 60);
+  const jobId = ++textRenderJobId;
+
+  if (textStatus) {
+    textStatus.textContent = "Textgrafik wird gerendert...";
+  }
+
+  try {
+    await ensureFontLoaded(fontFamily, fontSize);
+    const url = await createTextArtworkUrl({ text, fontFamily, fontSize, paddingPercent });
+    if (jobId !== textRenderJobId) {
+      URL.revokeObjectURL(url);
+      return;
+    }
+    const previousUrl = state.textArtUrl;
+    state.textArtUrl = url;
+    state.textArtLabel = `Textgrafik: "${text}" · ${fontFamily}`;
+    svgInput.value = "";
+    setPreviewSource(url, { revocable: true });
+    fileNameEl.textContent = state.textArtLabel;
+    if (previousUrl && previousUrl !== url) {
+      URL.revokeObjectURL(previousUrl);
+    }
+    if (textStatus) {
+      textStatus.textContent = "Textgrafik fertig. Klicke auf Falten generieren.";
+    }
+  } catch (error) {
+    console.error(error);
+    if (jobId !== textRenderJobId) {
+      return;
+    }
+    if (textStatus) {
+      textStatus.textContent = "Text konnte nicht gerendert werden. Versuche kürzeren Text oder eine kleinere Schriftgröße.";
+    }
+  }
+}
+
+function createPdfDocument() {
+  const factory = window.jspdf?.jsPDF;
+  if (!factory) {
+    summaryLine.textContent = "PDF-Engine wird noch geladen. Bitte versuche es erneut.";
+    return null;
+  }
+  if (!state.meta || !state.columns.length) {
+    summaryLine.textContent = "Generiere Falzdaten, bevor du sie als PDF exportierst.";
+    return null;
+  }
+
+  const { widthPx, heightPx, bookHeightMm } = state.meta;
+  if (!bookHeightMm) {
+    summaryLine.textContent = "Die Buchhöhe muss größer als null sein, um Falze zu skalieren.";
+    return null;
+  }
+
+  const timestamp = new Date().toLocaleString();
+  const doc = new factory({ unit: "mm", format: "a4", orientation: "portrait" });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const printableColumns = explodeColumns(state.columns);
+  const layout = {
+    marginX: 10,
+    marginY: 10,
+    headerHeight: 18,
+    axisWidth: 12,
+    columnWidth: 4.5,
+    columnGap: 1.8,
+    pageWidth,
+    pageHeight,
+    bookHeightMm,
+    widthPx,
+    heightPx,
+    timestamp,
+  };
+  layout.trackTop = layout.marginY + layout.headerHeight;
+  layout.trackBottom = pageHeight - layout.marginY;
+  layout.trackHeight = layout.trackBottom - layout.trackTop;
+  layout.axisX = layout.marginX;
+  layout.scale = layout.trackHeight / layout.bookHeightMm;
+  const availableWidth = pageWidth - layout.marginX * 2 - layout.axisWidth;
+  layout.columnsPerPage = Math.max(
+    1,
+    Math.floor((availableWidth + layout.columnGap) / (layout.columnWidth + layout.columnGap))
+  );
+
+  startPdfPage(doc, layout, 1);
+  let pageNumber = 1;
+  let columnOnPage = 0;
+  printableColumns.forEach((column) => {
+    if (columnOnPage === layout.columnsPerPage) {
+      doc.addPage();
+      pageNumber += 1;
+      startPdfPage(doc, layout, pageNumber);
+      columnOnPage = 0;
+    }
+    drawCompactColumn(doc, column, layout, columnOnPage);
+    columnOnPage += 1;
+  });
+
+  if (!printableColumns.length) {
+    doc.text("No folds detected", layout.marginX, layout.trackTop + 10);
+  }
+
+  return doc;
+}
+
+function startPdfPage(doc, layout, pageNumber) {
+  const {
+    marginX,
+    marginY,
+    headerHeight,
+    axisWidth,
+    trackTop,
+    trackBottom,
+    trackHeight,
+    pageWidth,
+    timestamp,
+    widthPx,
+    heightPx,
+    bookHeightMm,
+  } = layout;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(14);
+  doc.text("Orimoto Fold Guide", marginX, marginY + 4);
+  doc.setFontSize(8);
+  doc.text(`Generated ${timestamp}`, marginX, marginY + 10);
+  doc.text(
+    `Artwork ${widthPx}×${heightPx} px mapped to ${bookHeightMm} mm book height`,
+    marginX,
+    marginY + 15
+  );
+  doc.text(`Page ${pageNumber}`, pageWidth - marginX - 18, marginY + 4);
+
+  const axisCenterX = marginX + axisWidth / 2;
+  doc.setDrawColor(60);
+  doc.setLineWidth(0.3);
+  doc.line(axisCenterX, trackTop, axisCenterX, trackBottom);
+  doc.line(axisCenterX - 3, trackTop, axisCenterX + 3, trackTop);
+  doc.line(axisCenterX - 3, trackBottom, axisCenterX + 3, trackBottom);
+  doc.setFontSize(7);
+  doc.text("Top (0 mm)", marginX, trackTop - 2);
+  doc.text(`${bookHeightMm} mm`, marginX, trackBottom + 4);
+
+  // horizontal guides for alignment (every 10%)
+  doc.setDrawColor(210);
+  doc.setLineWidth(0.1);
+  for (let step = 1; step < 10; step += 1) {
+    const y = trackTop + (trackHeight * step) / 10;
+    doc.line(marginX, y, pageWidth - marginX, y);
+  }
+  doc.setLineWidth(0.3);
+  doc.setDrawColor(60);
+}
+
+function drawCompactColumn(doc, columnEntry, layout, positionIndex) {
+  const { axisWidth, marginX, columnWidth, columnGap, trackTop, trackHeight, scale } = layout;
+
+  const xStart = marginX + axisWidth + columnGap + positionIndex * (columnWidth + columnGap);
+  doc.setDrawColor(150);
+  doc.setLineWidth(0.2);
+  doc.rect(xStart, trackTop, columnWidth, trackHeight);
+  doc.setFontSize(6);
+  const labelParts = [`${columnEntry.columnIndex}`];
+  if (columnEntry.segmentCount > 1 && columnEntry.segmentIndex) {
+    labelParts.push(`fold ${columnEntry.segmentIndex}/${columnEntry.segmentCount}`);
+  }
+  doc.text(labelParts.join(" - "), xStart + columnWidth / 2, trackTop - 1, { align: "center" });
+
+  if (!columnEntry.segment) {
+    doc.setFontSize(5);
+    doc.text("No ink", xStart + columnWidth / 2, trackTop + 4, { align: "center" });
+    return;
+  }
+
+  const segment = columnEntry.segment;
+  const segY = trackTop + segment.startMm * scale;
+  const segHeight = Math.max(0.4, segment.heightMm * scale);
+  doc.setFillColor(60);
+  doc.rect(xStart + 0.2, segY, columnWidth - 0.4, segHeight, "F");
+
+//   doc.setFontSize(5);
+//   doc.text(
+//     `${formatMm(segment.startMm)}-${formatMm(segment.endMm)} mm`,
+//     xStart + columnWidth / 2,
+//     Math.min(segY + segHeight + 3, trackTop + trackHeight - 1),
+//     { align: "center" }
+//   );
+}
+
+function formatMm(value) {
+  return Number(value).toFixed(1);
+}
+
+function explodeColumns(columns) {
+  const flattened = [];
+  columns.forEach((column) => {
+    if (!column.segments.length) {
+      flattened.push({
+        columnIndex: column.columnIndex,
+        xStart: column.xStart,
+        xEnd: column.xEnd,
+        segment: null,
+        segmentIndex: null,
+        segmentCount: 0,
+      });
+      return;
+    }
+    column.segments.forEach((segment, idx) => {
+      flattened.push({
+        columnIndex: column.columnIndex,
+        xStart: column.xStart,
+        xEnd: column.xEnd,
+        segment,
+        segmentIndex: idx + 1,
+        segmentCount: column.segments.length,
+      });
+    });
+  });
+  return flattened;
+}
+
+async function ensureFontLoaded(fontFamily, fontSize) {
+  if (!document.fonts || typeof document.fonts.load !== "function") {
+    return;
+  }
+  const descriptor = `${fontSize}px "${fontFamily}"`;
+  try {
+    await document.fonts.load(descriptor);
+  } catch (error) {
+    console.warn("Font load warning", error);
+  }
+}
+
+async function createTextArtworkUrl(config) {
+  const { text, fontFamily, fontSize, paddingPercent } = config;
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  const fontDeclaration = `${fontSize}px "${fontFamily}", sans-serif`;
+  ctx.font = fontDeclaration;
+  const metrics = ctx.measureText(text);
+  const ascent = metrics.actualBoundingBoxAscent || fontSize * 0.8;
+  const descent = metrics.actualBoundingBoxDescent || fontSize * 0.2;
+  const textWidth = Math.max(10, metrics.width);
+  const padding = (paddingPercent / 100) * fontSize;
+  const width = Math.ceil(textWidth + padding * 2);
+  const height = Math.ceil(ascent + descent + padding * 2);
+  canvas.width = width;
+  canvas.height = height;
+
+  const drawCtx = canvas.getContext("2d");
+  drawCtx.fillStyle = "#fff";
+  drawCtx.fillRect(0, 0, width, height);
+  drawCtx.fillStyle = "#000";
+  drawCtx.font = fontDeclaration;
+  drawCtx.textAlign = "center";
+  drawCtx.textBaseline = "alphabetic";
+  drawCtx.fillText(text, width / 2, padding + ascent);
+
+  return await new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error("Unable to create artwork blob"));
+        return;
+      }
+      resolve(URL.createObjectURL(blob));
+    }, "image/png");
+  });
+}
+
+function clampNumber(value, min, max) {
+  if (!Number.isFinite(value)) {
+    return min;
+  }
+  return Math.min(Math.max(value, min), max);
+}
+
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
+function lerpPoint(a, b, t) {
+  return { x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t) };
+}
+
+function clamp01(value) {
+  return Math.min(1, Math.max(0, value));
+}
+
+renderBookPreview();
+resetPdfPreview();
+
+function previewPdf(doc) {
+  try {
+    const blob = doc.output("blob");
+    const blobUrl = URL.createObjectURL(blob);
+    attachPdfPreview(blobUrl);
+  } catch (error) {
+    console.error(error);
+    summaryLine.textContent = "Konnte die PDF-Vorschau nicht anzeigen. Siehe Konsole für Details.";
+    if (pdfStatus) {
+        pdfStatus.textContent = "PDF-Generierung fehlgeschlagen. Siehe Konsolenprotokolle.";
+    }
+  }
+}
+
+function attachPdfPreview(blobUrl) {
+  if (pdfPreviewUrl) {
+    URL.revokeObjectURL(pdfPreviewUrl);
+  }
+  pdfPreviewUrl = blobUrl;
+  if (pdfPreviewFrame) {
+    pdfPreviewFrame.src = blobUrl;
+  }
+  if (pdfDownloadLink) {
+    pdfDownloadLink.href = blobUrl;
+    pdfDownloadLink.classList.remove("disabled-link");
+    pdfDownloadLink.removeAttribute("aria-disabled");
+    pdfDownloadLink.removeAttribute("tabindex");
+    pdfDownloadLink.download = buildPdfFileName();
+  }
+  if (pdfStatus) {
+    pdfStatus.textContent = `PDF aktualisiert ${new Date().toLocaleTimeString()}. Verwende "PDF herunterladen", um es anzusehen oder zu drucken.`;
+  }
+}
+
+function resetPdfPreview() {
+  if (pdfPreviewUrl) {
+    URL.revokeObjectURL(pdfPreviewUrl);
+    pdfPreviewUrl = null;
+  }
+  if (pdfPreviewFrame) {
+    pdfPreviewFrame.removeAttribute("src");
+  }
+  if (pdfDownloadLink) {
+    pdfDownloadLink.href = "#";
+    pdfDownloadLink.classList.add("disabled-link");
+    pdfDownloadLink.setAttribute("aria-disabled", "true");
+    pdfDownloadLink.setAttribute("tabindex", "-1");
+    pdfDownloadLink.removeAttribute("download");
+  }
+  if (pdfStatus) {
+    pdfStatus.textContent = "Generiere Falze, um den PDF-Download zu aktivieren.";
+  }
+}
+
+function buildPdfFileName() {
+  if (!state.textArtLabel) {
+    return "orimoto-fold-guide.pdf";
+  }
+  const slug = state.textArtLabel
+    .replace(/"/g, "")
+    .replace(/[^a-z0-9]+/gi, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase();
+  return slug ? `orimoto-${slug}.pdf` : "orimoto-fold-guide.pdf";
+}
