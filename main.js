@@ -228,7 +228,7 @@ function renderResults() {
   const { heightPx, widthPx, bookHeightMm, bookWidthMm, originalWidthPx, activeRange, requestedBookHeightMm, maxHeightMm, originalImageWidth, originalImageHeight } = state.meta;
   const dimensionText =
     originalWidthPx && originalWidthPx !== widthPx
-      ? `${widthPx}px cropped of ${originalWidthPx}px width × ${heightPx}px height`
+      ? `${widthPx}px zugeschnitten von ${originalWidthPx}px Breite × ${heightPx}px Höhe`
       : `${widthPx}×${heightPx} px`;
   let summaryText = `${state.columns.length} Spalten • ${totalFolds} Falze • ${dimensionText} skaliert auf ${bookWidthMm.toFixed(1)}×${bookHeightMm.toFixed(1)} mm Buch`;
   
@@ -748,7 +748,7 @@ function createPdfDocument() {
   });
 
   if (!printableColumns.length) {
-    doc.text("No folds detected", layout.marginX, layout.trackTop + 10);
+    doc.text("Keine Falze erkannt", layout.marginX, layout.trackTop + 10);
   }
 
   return doc;
@@ -772,16 +772,15 @@ function startPdfPage(doc, layout, pageNumber) {
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(14);
-  doc.text("Orimoto Fold Guide", marginX, marginY + 4);
+  doc.text("Buchfaltstudio", marginX, marginY + 4);
   doc.setFontSize(8);
-  doc.text(`Generated ${timestamp}`, marginX, marginY + 10);
+  doc.text(`Generiert am ${timestamp}`, marginX, marginY + 10);
   doc.text(
-    `Artwork ${widthPx}×${heightPx} px mapped to ${bookHeightMm} mm book height`,
+    `Artwork ${widthPx}×${heightPx} px abgebildet auf ${bookHeightMm} mm Buchhöhe`,
     marginX,
     marginY + 15
   );
-  doc.text(`Page ${pageNumber}`, pageWidth - marginX - 18, marginY + 4);
-
+  doc.text(`Seite ${pageNumber}`, pageWidth - marginX - 18, marginY + 4);
   const axisCenterX = marginX + axisWidth / 2;
   doc.setDrawColor(60);
   doc.setLineWidth(0.3);
@@ -813,13 +812,13 @@ function drawCompactColumn(doc, columnEntry, layout, positionIndex) {
   doc.setFontSize(6);
   const labelParts = [`${columnEntry.columnIndex}`];
   if (columnEntry.segmentCount > 1 && columnEntry.segmentIndex) {
-    labelParts.push(`fold ${columnEntry.segmentIndex}/${columnEntry.segmentCount}`);
+    labelParts.push(`Falz ${columnEntry.segmentIndex}/${columnEntry.segmentCount}`);
   }
   doc.text(labelParts.join(" - "), xStart + columnWidth / 2, trackTop - 1, { align: "center" });
 
   if (!columnEntry.segment) {
     doc.setFontSize(5);
-    doc.text("No ink", xStart + columnWidth / 2, trackTop + 4, { align: "center" });
+    doc.text("Leer", xStart + columnWidth / 2, trackTop + 4, { align: "center" });
     return;
   }
 
