@@ -13,7 +13,7 @@
       <div>
         <p class="eyebrow">Precision fold planning</p>
         <h1>Buchfaltstudio</h1>
-        <p class="lede">Upload a black-and-white SVG, pick how many slices you want, and instantly get book-folding coordinates for every inked strip.</p>
+        <p class="lede">Lade eine schwarz-weiße SVG hoch, wähle, wie viele Scheiben du möchtest, und erhalte sofort buchfaltende Koordinaten für jeden eingefärbten Streifen.</p>
       </div>
       <div class="hero-card">
         <p>Erstelle klare typografische Buchfalt-Stücke ohne Tabellenkalkulationen. Die App analysiert jede Spalte, findet die Bereiche und wandelt sie in millimetergenau perfekte Falzmarkierungen um.</p>
@@ -33,14 +33,24 @@
               </label>
               <label>
                 <span>Google font</span>
-                <select id="fontSelect">
-                  <option value="Playfair Display">Playfair Display</option>
-                  <option value="Montserrat">Montserrat</option>
-                  <option value="Abril Fatface">Abril Fatface</option>
-                  <option value="Raleway">Raleway</option>
-                  <option value="Space Grotesk">Space Grotesk</option>
-                </select>
+                <input
+                  id="fontInput"
+                  type="text"
+                  value="Playfair Display"
+                  list="fontSuggestions"
+                  placeholder="z. B. Caveat Brush"
+                  autocomplete="off"
+                />
               </label>
+              <datalist id="fontSuggestions">
+                <option value="Playfair Display"></option>
+                <option value="Montserrat"></option>
+                <option value="Abril Fatface"></option>
+                <option value="Raleway"></option>
+                <option value="Space Grotesk"></option>
+                <option value="Caveat Brush"></option>
+                <option value="Caveat"></option>
+              </datalist>
               <label>
                 <span>Font size (px)</span>
                 <input id="fontSizeInput" type="number" min="60" max="240" value="160" />

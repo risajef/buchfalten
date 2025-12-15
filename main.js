@@ -245,10 +245,12 @@ const previewStatus = document.getElementById("previewStatus");
 const pdfStatus = document.getElementById("pdfStatus");
 const pdfDownloadLink = document.getElementById("pdfDownloadLink");
 const textInput = document.getElementById("textInput");
-const fontSelect = document.getElementById("fontSelect");
+const fontInput = document.getElementById("fontInput");
 const fontSizeInput = document.getElementById("fontSizeInput");
 const paddingInput = document.getElementById("paddingInput");
 const textStatus = document.getElementById("textStatus");
+
+const DEFAULT_FONT_FAMILY = "Playfair Display";
 
 const state = {
   columns: [],
@@ -257,6 +259,9 @@ const state = {
   textArtUrl: null,
   textArtLabel: "",
 };
+
+const fontStylesheetPromises = new Map();
+const FONT_PROBE_TEXT = "WEei1234567890";
 
 let previewUrl;
 let previewUrlRevocable = false;
@@ -285,7 +290,7 @@ svgInput?.addEventListener("change", () => {
 
 const autoTextInputs = [
   { el: textInput, event: "input", delay: 350 },
-  { el: fontSelect, event: "change", delay: 0 },
+  { el: fontInput, event: "input", delay: 0 },
   { el: fontSizeInput, event: "input", delay: 0 },
   { el: paddingInput, event: "input", delay: 0 },
 ];
@@ -444,6 +449,39 @@ function drawFlatFold(ctx, ratio, segment, viewport) {
   ctx.strokeRect(columnX - foldWidth / 2, startY, foldWidth, endY - startY);
 }
 
+function setPreviewSource(url, options = {}) {
+  const nextUrl = url || null;
+  const shouldRevoke = previewUrl && previewUrlRevocable && previewUrl !== nextUrl;
+  if (shouldRevoke) {
+    try {
+      URL.revokeObjectURL(previewUrl);
+    } catch (error) {
+      console.warn("Unable to revoke preview URL", error);
+    }
+  }
+  previewUrl = nextUrl;
+  previewUrlRevocable = Boolean(options.revocable);
+  if (!artworkPreview) {
+    return;
+  }
+  if (nextUrl) {
+    artworkPreview.src = nextUrl;
+  } else {
+    artworkPreview.removeAttribute("src");
+  }
+}
+
+function resolveArtworkSource() {
+  if (state.textArtUrl) {
+    return { url: state.textArtUrl, revoke: false };
+  }
+  const [file] = svgInput?.files || [];
+  if (!file) {
+    return null;
+  }
+  return { url: URL.createObjectURL(file), revoke: true };
+}
+
 function clearTextArtSource() {
   if (state.textArtUrl) {
     if (state.textArtUrl !== previewUrl) {
@@ -484,7 +522,7 @@ async function performTextArtworkRender() {
     return;
   }
 
-  const fontFamily = fontSelect?.value || "Playfair Display";
+  const fontFamily = normalizeFontName(fontInput?.value) || DEFAULT_FONT_FAMILY;
   const fontSize = clampNumber(Number(fontSizeInput?.value) || 160, 40, 260);
   const paddingPercent = clampNumber(Number(paddingInput?.value) || 18, 5, 60);
   const jobId = ++textRenderJobId;
@@ -510,7 +548,8 @@ async function performTextArtworkRender() {
       URL.revokeObjectURL(previousUrl);
     }
     if (textStatus) {
-      textStatus.textContent = "Textgrafik fertig. Klicke auf Falten generieren.";
+      const shareUrl = buildGoogleFontsShareUrl(fontFamily);
+      textStatus.textContent = `Textgrafik fertig. Schrift "${fontFamily}" (Google Fonts: ${shareUrl}). Klicke auf Falten generieren.`;
     }
   } catch (error) {
     console.error(error);
@@ -708,22 +747,145 @@ function explodeColumns(columns) {
 }
 
 async function ensureFontLoaded(fontFamily, fontSize) {
+  const normalized = normalizeFontName(fontFamily);
+  if (!normalized) {
+    return;
+  }
+  await ensureGoogleFontStylesheet(normalized);
+  await loadFontViaFontFaceSet(normalized, fontSize);
+  await waitForFontWidthChange(normalized);
+}
+
+async function loadFontViaFontFaceSet(fontFamily, fontSize) {
   if (!document.fonts || typeof document.fonts.load !== "function") {
     return;
   }
-  const descriptor = `${fontSize}px "${fontFamily}"`;
+  const primaryDescriptor = buildFontLoadingDescriptor(fontFamily, fontSize);
+  const fallbackDescriptor = `1em "${fontFamily}"`;
   try {
-    await document.fonts.load(descriptor);
+    await document.fonts.load(primaryDescriptor);
+    await document.fonts.load(fallbackDescriptor);
+    if (document.fonts.ready && typeof document.fonts.ready.then === "function") {
+      await document.fonts.ready;
+    }
   } catch (error) {
     console.warn("Font load warning", error);
   }
+}
+
+function waitForFontWidthChange(fontFamily, timeout = 4000) {
+  if (!document.body) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    const probe = document.createElement("span");
+    probe.textContent = FONT_PROBE_TEXT;
+    probe.style.position = "absolute";
+    probe.style.left = "-9999px";
+    probe.style.top = "0";
+    probe.style.visibility = "hidden";
+    probe.style.fontSize = "48px";
+    probe.style.fontFamily = "sans-serif";
+    document.body.appendChild(probe);
+    const fallbackWidth = probe.offsetWidth;
+    probe.style.fontFamily = `"${fontFamily}", sans-serif`;
+
+    if (probe.offsetWidth !== fallbackWidth) {
+      probe.remove();
+      resolve();
+      return;
+    }
+
+    const start = performance.now();
+
+    function cleanup() {
+      probe.remove();
+    }
+
+    function check() {
+      if (probe.offsetWidth !== fallbackWidth) {
+        cleanup();
+        resolve();
+        return;
+      }
+      if (performance.now() - start >= timeout) {
+        console.warn(`Font "${fontFamily}" timed out while waiting for load.`);
+        cleanup();
+        resolve();
+        return;
+      }
+      requestAnimationFrame(check);
+    }
+
+    requestAnimationFrame(check);
+  });
+}
+
+function ensureGoogleFontStylesheet(fontFamily) {
+  const normalized = normalizeFontName(fontFamily);
+  if (!normalized) {
+    return Promise.resolve();
+  }
+  if (fontStylesheetPromises.has(normalized)) {
+    return fontStylesheetPromises.get(normalized);
+  }
+  const cssUrl = buildGoogleFontsCssUrl(normalized);
+  const existingLink = document.querySelector(`link[data-font-family="${normalized}"]`);
+  if (existingLink) {
+    const ready = Promise.resolve();
+    fontStylesheetPromises.set(normalized, ready);
+    return ready;
+  }
+  const promise = new Promise((resolve, reject) => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = cssUrl;
+    link.dataset.fontFamily = normalized;
+    link.onload = () => resolve();
+    link.onerror = () => {
+      fontStylesheetPromises.delete(normalized);
+      reject(new Error(`Unable to load Google Font stylesheet for ${normalized}`));
+    };
+    document.head.appendChild(link);
+  });
+  fontStylesheetPromises.set(normalized, promise);
+  return promise;
+}
+
+function buildGoogleFontsCssUrl(fontFamily) {
+  return `https://fonts.googleapis.com/css2?family=${encodeFontFamilyForUrl(fontFamily)}&display=swap`;
+}
+
+function buildGoogleFontsShareUrl(fontFamily) {
+  return `https://fonts.google.com/share?selection.family=${encodeFontFamilyForUrl(fontFamily)}`;
+}
+
+function encodeFontFamilyForUrl(fontFamily) {
+  const normalized = normalizeFontName(fontFamily);
+  return normalized ? normalized.replace(/\s+/g, "+") : "";
+}
+
+function normalizeFontName(name) {
+  if (!name) {
+    return "";
+  }
+  return name.trim().replace(/\s+/g, " ");
+}
+
+function buildFontLoadingDescriptor(fontFamily, fontSize) {
+  const safeSize = clampNumber(fontSize || 16, 8, 512);
+  return `normal 400 ${safeSize}px "${fontFamily}"`;
+}
+
+function buildCanvasFontValue(fontFamily, fontSize) {
+  return `${buildFontLoadingDescriptor(fontFamily, fontSize)}, sans-serif`;
 }
 
 async function createTextArtworkUrl(config) {
   const { text, fontFamily, fontSize, paddingPercent } = config;
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
-  const fontDeclaration = `${fontSize}px "${fontFamily}", sans-serif`;
+  const fontDeclaration = buildCanvasFontValue(fontFamily, fontSize);
   ctx.font = fontDeclaration;
   const metrics = ctx.measureText(text);
   const ascent = metrics.actualBoundingBoxAscent || fontSize * 0.8;
@@ -796,9 +958,6 @@ function attachPdfPreview(blobUrl) {
     URL.revokeObjectURL(pdfPreviewUrl);
   }
   pdfPreviewUrl = blobUrl;
-  if (pdfPreviewFrame) {
-    pdfPreviewFrame.src = blobUrl;
-  }
   if (pdfDownloadLink) {
     pdfDownloadLink.href = blobUrl;
     pdfDownloadLink.classList.remove("disabled-link");
@@ -815,9 +974,6 @@ function resetPdfPreview() {
   if (pdfPreviewUrl) {
     URL.revokeObjectURL(pdfPreviewUrl);
     pdfPreviewUrl = null;
-  }
-  if (pdfPreviewFrame) {
-    pdfPreviewFrame.removeAttribute("src");
   }
   if (pdfDownloadLink) {
     pdfDownloadLink.href = "#";
