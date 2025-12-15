@@ -23,13 +23,17 @@
     <main class="workspace">
       <section class="panel controls">
         <h2>Artwork + Settings</h2>
+        <div class="mode-switch">
+          <button type="button" id="textModeBtn" class="mode-btn active">Text</button>
+          <button type="button" id="imageModeBtn" class="mode-btn">Bild</button>
+        </div>
         <form id="plannerForm">
-          <div class="text-composer">
+          <div class="text-composer" id="textMode">
             <h3>Build from Text</h3>
             <div class="text-grid">
               <label>
                 <span>Text to fold</span>
-                <input id="textInput" type="text" maxlength="24" placeholder="Type a word or initials" />
+                <input id="textInput" type="text" maxlength="32" placeholder="Type a word or initials" />
               </label>
               <label>
                 <span>Google font</span>
@@ -64,21 +68,24 @@
               <p class="micro-copy" id="textStatus">Tippe Text ein, um automatisch ein faltbares Wortzeichen zu erstellen.</p>
             </div>
           </div>
-          <label class="file-drop" for="svgInput">
-            <span class="hint">SVG ablegen oder zum Durchsuchen klicken</span>
-            <input id="svgInput" type="file" accept="image/svg+xml" />
-            <p id="fileName">Noch keine Datei ausgewählt</p>
-          </label>
+          <div class="image-composer" id="imageMode" style="display: none;">
+            <h3>Bild hochladen</h3>
+            <label class="file-drop" for="svgInput">
+              <span class="hint">Bild ablegen oder zum Durchsuchen klicken</span>
+              <input id="svgInput" type="file" accept="image/svg+xml,image/png,image/jpeg,image/jpg,image/gif,image/webp" />
+              <p id="fileName">Noch keine Datei ausgewählt</p>
+            </label>
+          </div>
 
           <div class="field-grid">
             <label>
               <span>Anzahl der Seiten</span>
-              <input id="columnInput" type="number" min="10" max="800" value="250" />
+              <input id="columnInput" type="number" min="10" max="1200" value="250" />
             </label>
 
             <label>
               <span>Buchhöhe (mm)</span>
-              <input id="heightInput" type="number" min="100" max="400" value="210" />
+              <input id="heightInput" type="number" min="80" max="400" value="210" />
             </label>
 
             <label style="visibility: hidden;">
@@ -92,8 +99,7 @@
             </label>
           </div>
 
-          <button type="submit" class="primary">Falten generieren</button>
-          <p class="micro-copy">Tipp: Halte SVGs rein schwarz-weiß für die saubersten Falzbänder.</p>
+          <button type="submit" class="primary" style="display: none;">Falten generieren</button>
         </form>
 
         <div class="preview">
@@ -108,7 +114,6 @@
             <h2>Faltanweisungen</h2>
             <p class="micro-copy" id="summaryLine">Warte auf eine SVG...</p>
           </div>
-          <button id="downloadPdf" class="ghost" disabled>PDF-Anleitung erstellen</button>
         </div>
         <div id="foldList" class="fold-list"></div>
         <div class="book-preview">
@@ -133,6 +138,7 @@
   </div>
 
   <canvas id="analysisCanvas" class="hidden" aria-hidden="true"></canvas>
+  <script src="config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
   <script src="main.js" defer></script>
 </body>

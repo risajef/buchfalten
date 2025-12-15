@@ -1,29 +1,64 @@
 function runAnalysis(image, options) {
   const { columns, bookHeight, darkThreshold, alphaThreshold } = options;
+  
+  // Calculate physical book dimensions
+  const bookWidthMm = columns * CONFIG.PAGE_THICKNESS_MM;
+  const maxHeightMm = bookWidthMm * CONFIG.MAX_HEIGHT_TO_WIDTH_RATIO;
+  const constrainedBookHeight = Math.min(bookHeight, maxHeightMm);
+  
+  // Get original image dimensions
+  const originalWidth = image.naturalWidth || image.width;
+  const originalHeight = image.naturalHeight || image.height;
+  const imageAspectRatio = originalWidth / originalHeight;
+  const bookAspectRatio = bookWidthMm / constrainedBookHeight;
+  
+  // Scale image to fit within book dimensions while maintaining aspect ratio
+  let scaledWidth, scaledHeight;
+  if (imageAspectRatio > bookAspectRatio) {
+    // Image is wider than book - width is limiting factor
+    scaledWidth = originalWidth;
+    scaledHeight = originalWidth / bookAspectRatio;
+  } else {
+    // Image is taller than book - height is limiting factor
+    scaledHeight = originalHeight;
+    scaledWidth = originalHeight * bookAspectRatio;
+  }
+  
+  // Draw scaled image to canvas
   const canvas = analysisCanvas;
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  const width = image.naturalWidth || image.width;
-  const height = image.naturalHeight || image.height;
+  canvas.width = scaledWidth;
+  canvas.height = scaledHeight;
+  ctx.clearRect(0, 0, scaledWidth, scaledHeight);
+  
+  // Fill with white background, then draw image centered
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, scaledWidth, scaledHeight);
+  
+  const offsetX = (scaledWidth - originalWidth) / 2;
+  const offsetY = (scaledHeight - originalHeight) / 2;
+  ctx.drawImage(image, offsetX, offsetY, originalWidth, originalHeight);
 
-  canvas.width = width;
-  canvas.height = height;
-  ctx.clearRect(0, 0, width, height);
-  ctx.drawImage(image, 0, 0, width, height);
-
-  const imageData = ctx.getImageData(0, 0, width, height);
+  const imageData = ctx.getImageData(0, 0, scaledWidth, scaledHeight);
   const thresholds = { darkThreshold, alphaThreshold };
   const activeRange = computeActiveRange(imageData, thresholds);
   const rawColumns = sliceColumns(imageData, columns, thresholds, activeRange);
-  const pxToMm = bookHeight / height;
-  const enriched = normalizeSegments(rawColumns, pxToMm, height);
+  
+  const pxToMm = constrainedBookHeight / scaledHeight;
+  const enriched = normalizeSegments(rawColumns, pxToMm, scaledHeight);
   const balanced = balanceSegments(enriched);
 
   state.columns = balanced;
   state.meta = {
-    heightPx: height,
-    widthPx: activeRange?.width || width,
-    originalWidthPx: width,
-    bookHeightMm: bookHeight,
+    heightPx: scaledHeight,
+    widthPx: activeRange?.width || scaledWidth,
+    originalWidthPx: scaledWidth,
+    originalImageWidth: originalWidth,
+    originalImageHeight: originalHeight,
+    bookHeightMm: constrainedBookHeight,
+    bookWidthMm: bookWidthMm,
+    requestedBookHeightMm: bookHeight,
+    maxHeightMm: maxHeightMm,
     pxToMm,
     activeRange,
   };
@@ -190,12 +225,22 @@ function renderResults() {
     return;
   }
 
-  const { heightPx, widthPx, bookHeightMm, originalWidthPx, activeRange } = state.meta;
+  const { heightPx, widthPx, bookHeightMm, bookWidthMm, originalWidthPx, activeRange, requestedBookHeightMm, maxHeightMm, originalImageWidth, originalImageHeight } = state.meta;
   const dimensionText =
     originalWidthPx && originalWidthPx !== widthPx
       ? `${widthPx}px cropped of ${originalWidthPx}px width × ${heightPx}px height`
       : `${widthPx}×${heightPx} px`;
-  let summaryText = `${state.columns.length} Spalten • ${totalFolds} Falze • ${dimensionText} abgebildet auf ${bookHeightMm} mm Höhe`;
+  let summaryText = `${state.columns.length} Spalten • ${totalFolds} Falze • ${dimensionText} skaliert auf ${bookWidthMm.toFixed(1)}×${bookHeightMm.toFixed(1)} mm Buch`;
+  
+  if (originalImageWidth && originalImageHeight) {
+    summaryText += ` (Original: ${originalImageWidth}×${originalImageHeight}px)`;
+  }
+  
+  // Show warning if height was constrained
+  if (requestedBookHeightMm && bookHeightMm < requestedBookHeightMm) {
+    summaryText += ` (Höhe auf ${bookHeightMm.toFixed(1)} mm begrenzt, max. ${maxHeightMm.toFixed(1)} mm)`;
+  }
+  
   if (activeRange && originalWidthPx && originalWidthPx !== widthPx) {
     const croppedLeft = activeRange.start;
     const croppedRight = Math.max(0, originalWidthPx - (activeRange.end + 1));
@@ -206,12 +251,17 @@ function renderResults() {
   if (foldList) {
     foldList.innerHTML = `
       <article class="fold-card">
-        <p class="micro-copy">Die Faltanweisungen befinden sich in der PDF-Anleitung. Verwende "PDF-Anleitung erstellen", um eine druckbare Datei zu generieren und herunterzuladen.</p>
+        <p class="micro-copy">Die Faltanweisungen befinden sich in der PDF-Anleitung. Verwende "PDF herunterladen", um eine druckbare Datei zu generieren und herunterzuladen.</p>
       </article>
     `;
   }
-  pdfBtn.disabled = false;
   renderBookPreview();
+  
+  // Auto-generate PDF
+  const doc = createPdfDocument();
+  if (doc) {
+    previewPdf(doc);
+  }
 }
 
 function maybeAutoPreview() {
@@ -237,7 +287,6 @@ const alphaInput = document.getElementById("alphaInput");
 const plannerForm = document.getElementById("plannerForm");
 const summaryLine = document.getElementById("summaryLine");
 const foldList = document.getElementById("foldList");
-const pdfBtn = document.getElementById("downloadPdf");
 const artworkPreview = document.getElementById("artworkPreview");
 const analysisCanvas = document.getElementById("analysisCanvas");
 const bookPreviewCanvas = document.getElementById("bookPreviewCanvas");
@@ -249,8 +298,12 @@ const fontInput = document.getElementById("fontInput");
 const fontSizeInput = document.getElementById("fontSizeInput");
 const paddingInput = document.getElementById("paddingInput");
 const textStatus = document.getElementById("textStatus");
+const textModeBtn = document.getElementById("textModeBtn");
+const imageModeBtn = document.getElementById("imageModeBtn");
+const textMode = document.getElementById("textMode");
+const imageMode = document.getElementById("imageMode");
 
-const DEFAULT_FONT_FAMILY = "Playfair Display";
+const DEFAULT_FONT_FAMILY = CONFIG.TEXT.DEFAULT_FONT;
 
 const state = {
   columns: [],
@@ -261,13 +314,44 @@ const state = {
 };
 
 const fontStylesheetPromises = new Map();
-const FONT_PROBE_TEXT = "WEei1234567890";
 
 let previewUrl;
 let previewUrlRevocable = false;
 let pdfPreviewUrl = null;
 let textRenderTimeout = null;
 let textRenderJobId = 0;
+let analysisTimeout = null;
+
+// Mode switching
+textModeBtn?.addEventListener("click", () => {
+  textModeBtn.classList.add("active");
+  imageModeBtn.classList.remove("active");
+  textMode.style.display = "block";
+  imageMode.style.display = "none";
+  triggerAutoAnalysis();
+});
+
+imageModeBtn?.addEventListener("click", () => {
+  imageModeBtn.classList.add("active");
+  textModeBtn.classList.remove("active");
+  imageMode.style.display = "block";
+  textMode.style.display = "none";
+  triggerAutoAnalysis();
+});
+
+function triggerAutoAnalysis(delay = CONFIG.DEBOUNCE.AUTO_ANALYSIS) {
+  if (analysisTimeout) {
+    clearTimeout(analysisTimeout);
+  }
+  analysisTimeout = setTimeout(() => {
+    analysisTimeout = null;
+    const form = plannerForm;
+    if (form) {
+      const event = new Event("submit", { cancelable: true, bubbles: true });
+      form.dispatchEvent(event);
+    }
+  }, delay);
+}
 
 svgInput?.addEventListener("change", () => {
   const [file] = svgInput.files || [];
@@ -286,10 +370,11 @@ svgInput?.addEventListener("change", () => {
   const url = URL.createObjectURL(file);
   setPreviewSource(url, { revocable: true });
   fileNameEl.textContent = file.name;
+  triggerAutoAnalysis();
 });
 
 const autoTextInputs = [
-  { el: textInput, event: "input", delay: 350 },
+  { el: textInput, event: "input", delay: CONFIG.DEBOUNCE.TEXT_INPUT },
   { el: fontInput, event: "input", delay: 0 },
   { el: fontSizeInput, event: "input", delay: 0 },
   { el: paddingInput, event: "input", delay: 0 },
@@ -305,6 +390,10 @@ autoTextInputs.forEach(({ el, event, delay }) => {
 if ((textInput?.value || "").trim()) {
   scheduleTextArtworkRender(0);
 }
+
+// Auto-trigger analysis when settings change
+columnInput?.addEventListener("input", () => triggerAutoAnalysis());
+heightInput?.addEventListener("input", () => triggerAutoAnalysis());
 
 plannerForm?.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -354,14 +443,24 @@ plannerForm?.addEventListener("submit", (event) => {
   img.src = source.url;
 });
 
-pdfBtn?.addEventListener("click", () => {
-  if (!state.columns.length) {
+pdfDownloadLink?.addEventListener("click", (e) => {
+  if (pdfDownloadLink.classList.contains("disabled-link")) {
+    e.preventDefault();
     return;
   }
-
-  const doc = createPdfDocument();
-  if (doc) {
-    previewPdf(doc);
+  // If no PDF exists yet, generate it
+  if (!pdfPreviewUrl && state.columns.length) {
+    e.preventDefault();
+    const doc = createPdfDocument();
+    if (doc) {
+      previewPdf(doc);
+      // Trigger download after generation
+      setTimeout(() => {
+        if (pdfDownloadLink.href && pdfDownloadLink.href !== "#") {
+          pdfDownloadLink.click();
+        }
+      }, 100);
+    }
   }
 });
 
@@ -371,11 +470,35 @@ function renderBookPreview() {
   }
 
   const ctx = bookPreviewCanvas.getContext("2d");
-  const width = bookPreviewCanvas.width;
-  const height = bookPreviewCanvas.height;
-  ctx.clearRect(0, 0, width, height);
+  
+  // Use actual image dimensions for aspect ratio
+  const imageWidthPx = state.meta?.widthPx || 1;
+  const imageHeightPx = state.meta?.heightPx || 1;
+  const imageAspectRatio = imageWidthPx / imageHeightPx;
+  
+  // Calculate canvas dimensions to maintain image aspect ratio
+  const canvasMaxWidth = CONFIG.CANVAS.BOOK_PREVIEW_WIDTH;
+  const canvasMaxHeight = CONFIG.CANVAS.BOOK_PREVIEW_HEIGHT;
+  
+  let canvasWidth, canvasHeight;
+  
+  if (imageAspectRatio > canvasMaxWidth / canvasMaxHeight) {
+    // Width is the limiting factor
+    canvasWidth = canvasMaxWidth;
+    canvasHeight = canvasMaxWidth / imageAspectRatio;
+  } else {
+    // Height is the limiting factor
+    canvasHeight = canvasMaxHeight;
+    canvasWidth = canvasHeight * imageAspectRatio;
+  }
+  
+  // Update canvas dimensions
+  bookPreviewCanvas.width = canvasWidth;
+  bookPreviewCanvas.height = canvasHeight;
+  
+  ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
-  drawFlatBook(ctx, width, height);
+  drawFlatBook(ctx, canvasWidth, canvasHeight);
 
   const activeSegments = state.columns
     .map((col) => (col.segments[0] ? { columnIndex: col.columnIndex, segment: col.segments[0] } : null))
@@ -395,7 +518,7 @@ function renderBookPreview() {
   const totalColumns = state.columns.length || 1;
   activeSegments.forEach(({ columnIndex, segment }) => {
     const ratio = totalColumns <= 1 ? 0.5 : (columnIndex - 1) / (totalColumns - 1);
-    drawFlatFold(ctx, ratio, segment, { width, height });
+    drawFlatFold(ctx, ratio, segment, { width: canvasWidth, height: canvasHeight });
   });
 }
 
@@ -523,8 +646,8 @@ async function performTextArtworkRender() {
   }
 
   const fontFamily = normalizeFontName(fontInput?.value) || DEFAULT_FONT_FAMILY;
-  const fontSize = clampNumber(Number(fontSizeInput?.value) || 160, 40, 260);
-  const paddingPercent = clampNumber(Number(paddingInput?.value) || 18, 5, 60);
+  const fontSize = clampNumber(Number(fontSizeInput?.value) || CONFIG.TEXT.FONT_SIZE.DEFAULT, CONFIG.TEXT.FONT_SIZE.MIN, CONFIG.TEXT.FONT_SIZE.MAX);
+  const paddingPercent = clampNumber(Number(paddingInput?.value) || CONFIG.TEXT.PADDING_PERCENT.DEFAULT, CONFIG.TEXT.PADDING_PERCENT.MIN, CONFIG.TEXT.PADDING_PERCENT.MAX);
   const jobId = ++textRenderJobId;
 
   if (textStatus) {
@@ -549,8 +672,9 @@ async function performTextArtworkRender() {
     }
     if (textStatus) {
       const shareUrl = buildGoogleFontsShareUrl(fontFamily);
-      textStatus.textContent = `Textgrafik fertig. Schrift "${fontFamily}" (Google Fonts: ${shareUrl}). Klicke auf Falten generieren.`;
+      textStatus.textContent = `Textgrafik fertig. Schrift "${fontFamily}" (Google Fonts: ${shareUrl})`;
     }
+    triggerAutoAnalysis();
   } catch (error) {
     console.error(error);
     if (jobId !== textRenderJobId) {
@@ -773,13 +897,13 @@ async function loadFontViaFontFaceSet(fontFamily, fontSize) {
   }
 }
 
-function waitForFontWidthChange(fontFamily, timeout = 4000) {
+function waitForFontWidthChange(fontFamily, timeout = CONFIG.FONT.LOAD_TIMEOUT) {
   if (!document.body) {
     return Promise.resolve();
   }
   return new Promise((resolve) => {
     const probe = document.createElement("span");
-    probe.textContent = FONT_PROBE_TEXT;
+    probe.textContent = CONFIG.FONT.PROBE_TEXT;
     probe.style.position = "absolute";
     probe.style.left = "-9999px";
     probe.style.top = "0";
