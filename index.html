@@ -11,9 +11,9 @@
   <div class="page">
     <header class="hero">
       <div>
-        <p class="eyebrow">Precision fold planning</p>
+        <p class="eyebrow">Präzise Faltplanung</p>
         <h1>Buchfaltstudio</h1>
-        <p class="lede">Lade eine schwarz-weiße SVG hoch, wähle, wie viele Scheiben du möchtest, und erhalte sofort buchfaltende Koordinaten für jeden eingefärbten Streifen.</p>
+        <p class="lede">Lade eine schwarz-weiße SVG hoch, wähle, wie viele Scheiben du möchtest, und erhalte sofort Buchfaltkoordinaten für jeden eingefärbten Streifen.</p>
       </div>
       <div class="hero-card">
         <p>Erstelle klare typografische Buchfalt-Stücke ohne Tabellenkalkulationen. Die App analysiert jede Spalte, findet die Bereiche und wandelt sie in millimetergenau perfekte Falzmarkierungen um.</p>
@@ -51,11 +51,11 @@
                 <option value="Caveat Brush"></option>
                 <option value="Caveat"></option>
               </datalist>
-              <label>
+              <label style="visibility: hidden;">
                 <span>Font size (px)</span>
                 <input id="fontSizeInput" type="number" min="60" max="240" value="160" />
               </label>
-              <label>
+              <label style="visibility: hidden;">
                 <span>Padding (%)</span>
                 <input id="paddingInput" type="number" min="5" max="40" value="18" />
               </label>
@@ -81,12 +81,12 @@
               <input id="heightInput" type="number" min="100" max="400" value="210" />
             </label>
 
-            <label>
+            <label style="visibility: hidden;">
               <span>Rauschschwelle</span>
               <input id="thresholdInput" type="number" min="0" max="255" value="235" />
             </label>
 
-            <label>
+            <label style="visibility: hidden;">
               <span>Alpha-Schwelle</span>
               <input id="alphaInput" type="number" min="0" max="255" value="40" />
             </label>
