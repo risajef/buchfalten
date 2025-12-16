@@ -8,8 +8,7 @@ export function analyzeImage(image, options) {
   
   // Calculate physical book dimensions
   const bookWidthMm = columns * CONFIG.PAGE_THICKNESS_MM;
-  const maxHeightMm = bookWidthMm * CONFIG.MAX_HEIGHT_TO_WIDTH_RATIO;
-  const constrainedBookHeight = Math.min(bookHeight, maxHeightMm);
+  const resolvedBookHeightMm = bookHeight;
   
   // Get original image dimensions
   const originalWidth = image.naturalWidth || image.width;
@@ -17,7 +16,7 @@ export function analyzeImage(image, options) {
   
   // Calculate canvas size to represent full book dimensions in pixels
   // We need to maintain the book's physical aspect ratio
-  const bookAspectRatio = bookWidthMm / constrainedBookHeight;
+  const bookAspectRatio = bookWidthMm / resolvedBookHeightMm;
   
   // Scale image to fit within book dimensions while maintaining aspect ratio
   // The canvas represents the full book, image is centered with white space
@@ -31,7 +30,7 @@ export function analyzeImage(image, options) {
   const thresholds = { darkThreshold, alphaThreshold };
   const rawColumns = sliceColumns(imageData, columns, thresholds, null);
   
-  const pxToMm = constrainedBookHeight / canvasHeight;
+  const pxToMm = resolvedBookHeightMm / canvasHeight;
   const enriched = normalizeSegments(rawColumns, pxToMm, canvasHeight);
   const balanced = balanceSegments(enriched);
 
@@ -43,10 +42,10 @@ export function analyzeImage(image, options) {
       originalWidthPx: canvasWidth,
       originalImageWidth: originalWidth,
       originalImageHeight: originalHeight,
-      bookHeightMm: constrainedBookHeight,
+      bookHeightMm: resolvedBookHeightMm,
       bookWidthMm: bookWidthMm,
       requestedBookHeightMm: bookHeight,
-      maxHeightMm: maxHeightMm,
+      maxHeightMm: null,
       pxToMm,
       activeRange: null,
     }

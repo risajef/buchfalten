@@ -3,8 +3,8 @@ function runAnalysis(image, options) {
   
   // Calculate physical book dimensions
   const bookWidthMm = columns * CONFIG.PAGE_THICKNESS_MM;
-  const maxHeightMm = bookWidthMm * CONFIG.MAX_HEIGHT_TO_WIDTH_RATIO;
-  const constrainedBookHeight = Math.min(bookHeight, maxHeightMm);
+  const maxHeightMm = null;
+  const constrainedBookHeight = bookHeight;
   
   // Get original image dimensions
   const originalWidth = image.naturalWidth || image.width;
@@ -237,7 +237,12 @@ function renderResults() {
   }
   
   // Show warning if height was constrained
-  if (requestedBookHeightMm && bookHeightMm < requestedBookHeightMm) {
+  if (
+    Number.isFinite(requestedBookHeightMm) &&
+    Number.isFinite(bookHeightMm) &&
+    bookHeightMm < requestedBookHeightMm &&
+    Number.isFinite(maxHeightMm)
+  ) {
     summaryText += ` (Höhe auf ${bookHeightMm.toFixed(1)} mm begrenzt, max. ${maxHeightMm.toFixed(1)} mm)`;
   }
   

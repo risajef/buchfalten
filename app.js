@@ -1,6 +1,6 @@
 /**
  * Buchfaltstudio - Main Application
- * Orimoto book folding pattern generator
+ * Book folding pattern generator
  */
 
 import { analyzeImage } from './js/analysis.js';
@@ -241,7 +241,12 @@ function updateSummaryText(totalFolds) {
     summaryText += ` (Original: ${originalImageWidth}×${originalImageHeight}px)`;
   }
   
-  if (requestedBookHeightMm && bookHeightMm < requestedBookHeightMm) {
+  if (
+    Number.isFinite(requestedBookHeightMm) &&
+    Number.isFinite(bookHeightMm) &&
+    bookHeightMm < requestedBookHeightMm &&
+    Number.isFinite(maxHeightMm)
+  ) {
     summaryText += ` (Höhe auf ${bookHeightMm.toFixed(1)} mm begrenzt, max. ${maxHeightMm.toFixed(1)} mm)`;
   }
   

@@ -4,7 +4,6 @@
 const CONFIG = {
   // Physical book properties
   PAGE_THICKNESS_MM: 0.25, // Each folded page thickness in millimeters
-  MAX_HEIGHT_TO_WIDTH_RATIO: 0.5, // Maximum height is 50% of book width
   
   // Text rendering defaults
   TEXT: {
@@ -56,7 +55,7 @@ const CONFIG = {
   HEIGHT: {
     MIN: 80,
     DEFAULT: 210,
-    MAX: 400
+    MAX: 259
   },
   
   // Auto-render delays (in ms)

@@ -19,7 +19,18 @@ export function createPdfDocument(state) {
   }
 
   const timestamp = new Date().toLocaleString();
-  const doc = new factory({ unit: "mm", format: "a4", orientation: "portrait" });
+
+  // Use landscape when the book height can be rendered 1:1 within the available
+  // vertical track area on an A4 landscape page.
+  // A4 landscape height is 210mm; with marginY=10 and headerHeight=18 we get 172mm.
+  const marginY = 10;
+  const headerHeight = 18;
+  const trackTop = marginY + headerHeight;
+  const a4LandscapeHeightMm = 210;
+  const landscapeMaxTrackHeightMm = a4LandscapeHeightMm - marginY - trackTop;
+  const orientation = bookHeightMm <= landscapeMaxTrackHeightMm ? "landscape" : "portrait";
+
+  const doc = new factory({ unit: "mm", format: "a4", orientation });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const printableColumns = explodeColumns(state.columns);
@@ -57,10 +68,21 @@ function createPdfLayout(params) {
   };
   
   layout.trackTop = layout.marginY + layout.headerHeight;
-  layout.trackBottom = pageHeight - layout.marginY;
-  layout.trackHeight = layout.trackBottom - layout.trackTop;
+  const maxTrackBottom = pageHeight - layout.marginY;
+  const maxTrackHeight = maxTrackBottom - layout.trackTop;
+
+  // True-scale when possible: 1mm in the book equals 1mm on paper.
+  // If the requested book height doesn't fit on the page, fall back to fit-to-page scaling.
+  if (bookHeightMm <= maxTrackHeight) {
+    layout.scale = 1;
+    layout.trackHeight = bookHeightMm;
+    layout.trackBottom = layout.trackTop + layout.trackHeight;
+  } else {
+    layout.trackBottom = maxTrackBottom;
+    layout.trackHeight = maxTrackHeight;
+    layout.scale = layout.trackHeight / layout.bookHeightMm;
+  }
   layout.axisX = layout.marginX;
-  layout.scale = layout.trackHeight / layout.bookHeightMm;
   
   const availableWidth = pageWidth - layout.marginX * 2 - layout.axisWidth;
   layout.columnsPerPage = Math.max(
@@ -206,12 +228,12 @@ function explodeColumns(columns) {
 
 export function buildPdfFileName(textArtLabel) {
   if (!textArtLabel) {
-    return "orimoto-fold-guide.pdf";
+    return "Faltanleitung.pdf";
   }
   const slug = textArtLabel
     .replace(/"/g, "")
     .replace(/[^a-z0-9]+/gi, "-")
     .replace(/^-+|-+$/g, "")
     .toLowerCase();
-  return slug ? `orimoto-${slug}.pdf` : "orimoto-fold-guide.pdf";
+  return slug ? `Faltanleitung-${slug}.pdf` : "Faltanleitung.pdf";
 }
