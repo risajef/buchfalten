@@ -128,6 +128,7 @@ function handleFileInputChange() {
       elements.fileName.textContent = "No artwork selected yet";
       setPreviewSource(null);
     }
+    state.inputFileName = null;
     return;
   }
 
@@ -135,6 +136,7 @@ function handleFileInputChange() {
   const url = URL.createObjectURL(file);
   setPreviewSource(url, { revocable: true });
   elements.fileName.textContent = file.name;
+  state.inputFileName = file.name;
   triggerAutoAnalysis();
 }
 
@@ -172,6 +174,13 @@ elements.plannerForm?.addEventListener("submit", async (event) => {
       const result = analyzeImage(img, { columns, bookHeight, darkThreshold, alphaThreshold });
       state.columns = result.columns;
       state.meta = result.meta;
+      // Attach UI-provided metadata so the PDF can show font, text and filename
+      state.meta.text = elements.textInput?.value || state.textArtLabel || "";
+      state.meta.fontFamily = elements.fontInput?.value || DEFAULT_FONT_FAMILY;
+      state.meta.fontSize = Number(elements.fontSizeInput?.value) || null;
+      if (state.inputFileName) {
+        state.meta.imageFileName = state.inputFileName;
+      }
       renderResults();
       maybeAutoPreview();
     } catch (error) {

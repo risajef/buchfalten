@@ -3,7 +3,7 @@
 
 const CONFIG = {
   // Physical book properties
-  PAGE_THICKNESS_MM: 0.25, // Each folded page thickness in millimeters
+  PAGE_THICKNESS_MM: 1.0, // Each folded page thickness in millimeters
   
   // Text rendering defaults
   TEXT: {

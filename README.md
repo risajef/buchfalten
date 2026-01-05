@@ -22,9 +22,6 @@ Book folding pattern generator - Create beautiful folded book art with precision
 ```bash
 # Using Python 3
 python3 -m http.server 8000
-
-# Or Python 2
-python -m SimpleHTTPServer 8000
 ```
 
 Then open `http://localhost:8000` in your browser.

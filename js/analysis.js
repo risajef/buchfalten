@@ -28,7 +28,11 @@ export function analyzeImage(image, options) {
   const imageData = renderImageToCanvas(canvas, image, canvasWidth, canvasHeight, imageWidth, imageHeight, imageX, imageY);
   
   const thresholds = { darkThreshold, alphaThreshold };
-  const rawColumns = sliceColumns(imageData, columns, thresholds, null);
+  // Determine the horizontal active range (non-empty area) and slice only that
+  // region into columns. This trims empty left/right parts of the SVG before
+  // the folding analysis so output columns correspond to visible artwork.
+  const activeRange = computeActiveRange(imageData, thresholds);
+  const rawColumns = sliceColumns(imageData, columns, thresholds, activeRange);
   
   const pxToMm = resolvedBookHeightMm / canvasHeight;
   const enriched = normalizeSegments(rawColumns, pxToMm, canvasHeight);
@@ -48,6 +52,7 @@ export function analyzeImage(image, options) {
       maxHeightMm: null,
       pxToMm,
       activeRange: null,
+      activeRange,
     }
   };
 }
