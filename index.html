@@ -1,142 +1,225 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Buchfaltstudio</title>
-  <link rel="stylesheet" href="styles.css" />
-</head>
-<body>
-  <div class="atmosphere"></div>
-  <div class="page">
-    <header class="hero">
-      <div>
-        <p class="eyebrow">Präzise Faltplanung</p>
-        <h1>Buchfaltstudio</h1>
-        <p class="lede">Lade eine schwarz-weisse SVG hoch, wähle, wie viel du scheiben möchtest, und erhalte sofort Buchfaltaleitung.</p>
-      </div>
-    </header>
-
-    <main class="workspace">
-      <section class="panel controls">
-        <h2>Einstellungen</h2>
-        <div class="mode-switch">
-          <button type="button" id="textModeBtn" class="mode-btn active">Text</button>
-          <button type="button" id="imageModeBtn" class="mode-btn">Bild</button>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Buchfaltstudio</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="atmosphere"></div>
+    <div class="page">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Präzise Faltplanung</p>
+          <h1>Buchfaltstudio</h1>
+          <p class="lede">
+            Lade eine schwarz-weisse SVG hoch, wähle, wie viel du scheiben
+            möchtest, und erhalte sofort Buchfaltaleitung.
+          </p>
         </div>
-        <form id="plannerForm">
-          <div class="text-composer" id="textMode">
-            <h3>Texteingabe</h3>
-            <div class="text-grid">
-              <label>
-                <span>Text den du falten möchtest.</span>
-                <input id="textInput" type="text" maxlength="32" placeholder="Text hier eingeben" />
-              </label><br/>
-              <label>
-                <span>Schriftart von <a href="https://fonts.google.com" target="_blank" rel="noopener noreferrer">Google Fonts</a></span>
+      </header>
+
+      <main class="workspace">
+        <section class="panel controls">
+          <h2>Einstellungen</h2>
+          <div class="mode-switch">
+            <button type="button" id="textModeBtn" class="mode-btn active">
+              Text
+            </button>
+            <button type="button" id="imageModeBtn" class="mode-btn">
+              Bild
+            </button>
+          </div>
+          <form id="plannerForm">
+            <div class="text-composer" id="textMode">
+              <h3>Texteingabe</h3>
+              <div class="text-grid">
+                <label>
+                  <span>Text den du falten möchtest.</span>
+                  <input
+                    id="textInput"
+                    type="text"
+                    maxlength="32"
+                    placeholder="Text hier eingeben"
+                  /> </label
+                ><br />
+                <label>
+                  <span
+                    >Schriftart von
+                    <a
+                      href="https://fonts.google.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      >Google Fonts</a
+                    ></span
+                  >
+                  <input
+                    id="fontInput"
+                    type="text"
+                    value="Playfair Display"
+                    list="fontSuggestions"
+                    placeholder="z. B. Caveat Brush"
+                    autocomplete="off"
+                  />
+                </label>
+                <datalist id="fontSuggestions">
+                  <option value="Playfair Display"></option>
+                  <option value="Montserrat"></option>
+                  <option value="Abril Fatface"></option>
+                  <option value="Raleway"></option>
+                  <option value="Space Grotesk"></option>
+                  <option value="Caveat Brush"></option>
+                  <option value="Caveat"></option>
+                </datalist>
+                <label style="visibility: hidden; position: absolute">
+                  <span>Font size (px)</span>
+                  <input
+                    id="fontSizeInput"
+                    type="number"
+                    min="60"
+                    max="240"
+                    value="160"
+                  />
+                </label>
+                <label style="visibility: hidden; position: absolute">
+                  <span>Padding (%)</span>
+                  <input
+                    id="paddingInput"
+                    type="number"
+                    min="5"
+                    max="40"
+                    value="18"
+                  />
+                </label>
+              </div>
+              <div class="text-actions">
+                <p class="micro-copy" id="textStatus">
+                  Tippe Text ein, um automatisch ein faltbares Wortzeichen zu
+                  erstellen.
+                </p>
+              </div>
+            </div>
+            <div class="image-composer" id="imageMode" style="display: none">
+              <h3>Bild hochladen</h3>
+              <label class="file-drop" for="svgInput">
+                <span class="hint"
+                  >Bild ablegen oder zum Durchsuchen klicken</span
+                >
                 <input
-                  id="fontInput"
-                  type="text"
-                  value="Playfair Display"
-                  list="fontSuggestions"
-                  placeholder="z. B. Caveat Brush"
-                  autocomplete="off"
+                  id="svgInput"
+                  type="file"
+                  accept="image/svg+xml,image/png,image/jpeg,image/jpg,image/gif,image/webp"
+                />
+                <p id="fileName">Noch keine Datei ausgewählt</p>
+              </label>
+            </div>
+
+            <div class="field-grid">
+              <label>
+                <span>Anzahl der Seiten</span>
+                <input
+                  id="columnInput"
+                  type="number"
+                  min="10"
+                  max="1200"
+                  value="250"
                 />
               </label>
-              <datalist id="fontSuggestions">
-                <option value="Playfair Display"></option>
-                <option value="Montserrat"></option>
-                <option value="Abril Fatface"></option>
-                <option value="Raleway"></option>
-                <option value="Space Grotesk"></option>
-                <option value="Caveat Brush"></option>
-                <option value="Caveat"></option>
-              </datalist>
-              <label style="visibility: hidden; position: absolute;">
-                <span>Font size (px)</span>
-                <input id="fontSizeInput" type="number" min="60" max="240" value="160" />
+
+              <label>
+                <span>Buchhöhe (mm)</span>
+                <input
+                  id="heightInput"
+                  type="number"
+                  min="80"
+                  max="400"
+                  value="210"
+                />
               </label>
-              <label style="visibility: hidden; position: absolute;">
-                <span>Padding (%)</span>
-                <input id="paddingInput" type="number" min="5" max="40" value="18" />
+
+              <label style="visibility: hidden; position: absolute">
+                <span>Rauschschwelle</span>
+                <input
+                  id="thresholdInput"
+                  type="number"
+                  min="0"
+                  max="255"
+                  value="235"
+                />
+              </label>
+
+              <label style="visibility: hidden; position: absolute">
+                <span>Alpha-Schwelle</span>
+                <input
+                  id="alphaInput"
+                  type="number"
+                  min="0"
+                  max="255"
+                  value="40"
+                />
               </label>
             </div>
-            <div class="text-actions">
-              <p class="micro-copy" id="textStatus">Tippe Text ein, um automatisch ein faltbares Wortzeichen zu erstellen.</p>
+
+            <button type="submit" class="primary" style="display: none">
+              Falten generieren
+            </button>
+          </form>
+
+          <div class="preview">
+            <p>Artwork Vorschau</p>
+            <img id="artworkPreview" alt="SVG Vorschau" />
+          </div>
+        </section>
+
+        <section class="panel results">
+          <div class="results-header">
+            <div>
+              <h2>Faltanweisungen</h2>
+              <p class="micro-copy" id="summaryLine">Warte auf eine SVG...</p>
             </div>
           </div>
-          <div class="image-composer" id="imageMode" style="display: none;">
-            <h3>Bild hochladen</h3>
-            <label class="file-drop" for="svgInput">
-              <span class="hint">Bild ablegen oder zum Durchsuchen klicken</span>
-              <input id="svgInput" type="file" accept="image/svg+xml,image/png,image/jpeg,image/jpg,image/gif,image/webp" />
-              <p id="fileName">Noch keine Datei ausgewählt</p>
-            </label>
+          <div id="foldList" class="fold-list"></div>
+          <div class="book-preview">
+            <header>
+              <h3>Buchvorschau</h3>
+              <p class="micro-copy" id="previewStatus">
+                Warte auf Faltdaten...
+              </p>
+            </header>
+            <canvas
+              id="bookPreviewCanvas"
+              width="600"
+              height="380"
+              aria-label="Buchfaltvorschau"
+            ></canvas>
           </div>
 
-          <div class="field-grid">
-            <label>
-              <span>Anzahl der Seiten</span>
-              <input id="columnInput" type="number" min="10" max="1200" value="250" />
-            </label>
-
-            <label>
-              <span>Buchhöhe (mm)</span>
-              <input id="heightInput" type="number" min="80" max="400" value="210" />
-            </label>
-
-            <label style="visibility: hidden; position: absolute;">
-              <span>Rauschschwelle</span>
-              <input id="thresholdInput" type="number" min="0" max="255" value="235" />
-            </label>
-
-            <label style="visibility: hidden; position: absolute;">
-              <span>Alpha-Schwelle</span>
-              <input id="alphaInput" type="number" min="0" max="255" value="40" />
-            </label>
+          <div class="pdf-preview" id="pdfPreview">
+            <header>
+              <h3>PDF-Anleitung</h3>
+              <p class="micro-copy" id="pdfStatus">
+                Generiere Falze, um den PDF-Download zu aktivieren.
+              </p>
+            </header>
+            <div class="pdf-actions">
+              <a
+                id="pdfDownloadLink"
+                class="ghost disabled-link"
+                aria-disabled="true"
+                href="#"
+                tabindex="-1"
+                >PDF herunterladen</a
+              >
+            </div>
           </div>
+        </section>
+      </main>
+    </div>
 
-          <button type="submit" class="primary" style="display: none;">Falten generieren</button>
-        </form>
-
-        <div class="preview">
-          <p>Artwork Vorschau</p>
-          <img id="artworkPreview" alt="SVG Vorschau" />
-        </div>
-      </section>
-
-      <section class="panel results">
-        <div class="results-header">
-          <div>
-            <h2>Faltanweisungen</h2>
-            <p class="micro-copy" id="summaryLine">Warte auf eine SVG...</p>
-          </div>
-        </div>
-        <div id="foldList" class="fold-list"></div>
-        <div class="book-preview">
-          <header>
-            <h3>Buchvorschau</h3>
-            <p class="micro-copy" id="previewStatus">Warte auf Faltdaten...</p>
-          </header>
-          <canvas id="bookPreviewCanvas" width="600" height="380" aria-label="Buchfaltvorschau"></canvas>
-        </div>
-
-        <div class="pdf-preview" id="pdfPreview">
-          <header>
-            <h3>PDF-Anleitung</h3>
-            <p class="micro-copy" id="pdfStatus">Generiere Falze, um den PDF-Download zu aktivieren.</p>
-          </header>
-          <div class="pdf-actions">
-            <a id="pdfDownloadLink" class="ghost disabled-link" aria-disabled="true" href="#" tabindex="-1">PDF herunterladen</a>
-          </div>
-        </div>
-      </section>
-    </main>
-  </div>
-
-  <canvas id="analysisCanvas" class="hidden" aria-hidden="true"></canvas>
-  <script src="config.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-  <script type="module" src="app.js"></script>
-</body>
+    <canvas id="analysisCanvas" class="hidden" aria-hidden="true"></canvas>
+    <script src="config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script type="module" src="app.js"></script>
+  </body>
 </html>
