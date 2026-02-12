@@ -686,7 +686,7 @@ async function performTextArtworkRender() {
       return;
     }
     if (textStatus) {
-      textStatus.textContent = "Text konnte nicht gerendert werden. Versuche kürzeren Text oder eine kleinere Schriftgröße.";
+      textStatus.textContent = "Text konnte nicht gerendert werden. Versuche kürzeren Text oder eine kleinere Schriftgrösse.";
     }
   }
 }
@@ -704,7 +704,7 @@ function createPdfDocument() {
 
   const { widthPx, heightPx, bookHeightMm } = state.meta;
   if (!bookHeightMm) {
-    summaryLine.textContent = "Die Buchhöhe muss größer als null sein, um Falze zu skalieren.";
+    summaryLine.textContent = "Die Buchhöhe muss grösser als null sein, um Falze zu skalieren.";
     return null;
   }
 

@@ -15,7 +15,7 @@ export function createPdfDocument(state) {
 
   const { widthPx, heightPx, bookHeightMm } = state.meta;
   if (!bookHeightMm) {
-    throw new Error("Die Buchhöhe muss größer als null sein, um Falze zu skalieren.");
+    throw new Error("Die Buchhöhe muss grösser als null sein, um Falze zu skalieren.");
   }
 
   const timestamp = new Date().toLocaleString();

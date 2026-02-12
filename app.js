@@ -389,7 +389,7 @@ async function performTextArtworkRender() {
     if (jobId !== textRenderJobId) return;
     
     if (elements.textStatus) {
-      elements.textStatus.textContent = "Text konnte nicht gerendert werden. Versuche kürzeren Text oder eine kleinere Schriftgröße.";
+      elements.textStatus.textContent = "Text konnte nicht gerendert werden. Versuche kürzeren Text oder eine kleinere Schriftgrösse.";
     }
   }
 }
