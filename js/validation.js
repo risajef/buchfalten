@@ -7,8 +7,8 @@ export function validateAnalysisOptions({ columns, bookHeight, darkThreshold, al
   if (!Number.isFinite(bookHeight) || bookHeight < CONFIG.HEIGHT.MIN || bookHeight > CONFIG.HEIGHT.MAX) {
     throw new Error(`Buchhöhe: ${CONFIG.HEIGHT.MIN} bis ${CONFIG.HEIGHT.MAX} mm.`);
   }
-  if (!Number.isFinite(pageThicknessMm) || pageThicknessMm < 0.1 || pageThicknessMm > 3) {
-    throw new Error('Breite je gefaltetem Blatt: 0.1 bis 3 mm.');
+  if (!Number.isFinite(pageThicknessMm) || pageThicknessMm < CONFIG.FOLDED_LEAF_WIDTH_MM.MIN || pageThicknessMm > CONFIG.FOLDED_LEAF_WIDTH_MM.MAX) {
+    throw new Error(`Breite je gefaltetem Blatt: ${CONFIG.FOLDED_LEAF_WIDTH_MM.MIN} bis ${CONFIG.FOLDED_LEAF_WIDTH_MM.MAX} mm.`);
   }
   if (!["alternate", "reject"].includes(segmentPolicy)) throw new Error('Unbekannte Farbstreifen-Regel.');
   for (const value of [darkThreshold, alphaThreshold]) {

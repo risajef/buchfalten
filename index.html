@@ -40,7 +40,6 @@
                   <input
                     id="textInput"
                     type="text"
-                    maxlength="32"
                     placeholder="Text hier eingeben"
                   /> </label
                 ><br />
@@ -57,29 +56,17 @@
                   <input
                     id="fontInput"
                     type="text"
-                    value="Playfair Display"
                     list="fontSuggestions"
                     placeholder="z. B. Caveat Brush"
                     autocomplete="off"
                   />
                 </label>
-                <datalist id="fontSuggestions">
-                  <option value="Playfair Display"></option>
-                  <option value="Montserrat"></option>
-                  <option value="Abril Fatface"></option>
-                  <option value="Raleway"></option>
-                  <option value="Space Grotesk"></option>
-                  <option value="Caveat Brush"></option>
-                  <option value="Caveat"></option>
-                </datalist>
+                <datalist id="fontSuggestions"></datalist>
                 <label style="visibility: hidden; position: absolute">
                   <span>Font size (px)</span>
                   <input
                     id="fontSizeInput"
                     type="number"
-                    min="60"
-                    max="240"
-                    value="160"
                   />
                 </label>
                 <label style="visibility: hidden; position: absolute">
@@ -87,9 +74,6 @@
                   <input
                     id="paddingInput"
                     type="number"
-                    min="5"
-                    max="40"
-                    value="18"
                   />
                 </label>
               </div>
@@ -109,7 +93,6 @@
                 <input
                   id="svgInput"
                   type="file"
-                  accept="image/svg+xml,image/png,image/jpeg,image/jpg,image/gif,image/webp"
                 />
                 <p id="fileName">Noch keine Datei ausgewählt</p>
               </label>
@@ -121,15 +104,12 @@
                 <input
                   id="columnInput"
                   type="number"
-                  min="10"
-                  max="1200"
-                  value="250"
                 />
               </label>
 
               <label>
                 <span>Breite je gefaltetem Blatt (mm)</span>
-                <input id="thicknessInput" type="number" min="0.1" max="3" step="0.05" value="1" />
+                <input id="thicknessInput" type="number" />
               </label>
               <label>
                 <span>Mehrere Farbstreifen pro Blatt</span>
@@ -144,9 +124,6 @@
                 <input
                   id="heightInput"
                   type="number"
-                  min="80"
-                  max="400"
-                  value="210"
                 />
               </label>
 
@@ -155,9 +132,6 @@
                 <input
                   id="thresholdInput"
                   type="number"
-                  min="0"
-                  max="255"
-                  value="235"
                 />
               </label>
 
@@ -166,9 +140,6 @@
                 <input
                   id="alphaInput"
                   type="number"
-                  min="0"
-                  max="255"
-                  value="40"
                 />
               </label>
             </div>

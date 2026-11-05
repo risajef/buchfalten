@@ -5,7 +5,8 @@ import { deepFreeze } from "./utils.js";
 
 const DEFAULTS = {
   // Physical book properties
-  PAGE_THICKNESS_MM: 1.0, // Each folded page thickness in millimeters
+  PAGE_THICKNESS_MM: 1.0, // Default effective width of a folded leaf, not raw paper thickness
+  FOLDED_LEAF_WIDTH_MM: { MIN: 0.1, MAX: 3 },
 
   // Text rendering defaults
   TEXT: {

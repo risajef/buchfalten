@@ -75,6 +75,31 @@ export function mountBuchfaltstudio(root, {
     imageMode: root.querySelector("#imageMode"),
   };
 
+  // Defaults and constraints come from the same configuration used by validation.
+  const numericControls = [
+    [elements.columnInput, CONFIG.PAGES, 1],
+    [elements.heightInput, CONFIG.HEIGHT, 1],
+    [elements.thicknessInput, { ...CONFIG.FOLDED_LEAF_WIDTH_MM, DEFAULT: CONFIG.PAGE_THICKNESS_MM }, 0.05],
+    [elements.fontSizeInput, CONFIG.TEXT.FONT_SIZE, 1],
+    [elements.paddingInput, CONFIG.TEXT.PADDING_PERCENT, 1],
+    [elements.thresholdInput, CONFIG.ANALYSIS.DARK_THRESHOLD, 1],
+    [elements.alphaInput, CONFIG.ANALYSIS.ALPHA_THRESHOLD, 1],
+  ];
+  for (const [element, settings, step] of numericControls) {
+    element.min = String(settings.MIN);
+    element.max = String(settings.MAX);
+    element.step = String(step);
+    if (element.value === "") element.value = String(settings.DEFAULT);
+  }
+  elements.textInput.maxLength = CONFIG.TEXT.MAX_LENGTH;
+  if (!elements.fontInput.value) elements.fontInput.value = CONFIG.TEXT.DEFAULT_FONT;
+  elements.svgInput.accept = CONFIG.ACCEPTED_IMAGE_TYPES.join(",");
+  root.querySelector("#fontSuggestions")?.replaceChildren(...CONFIG.TEXT.SUGGESTED_FONTS.map(family => {
+    const option = doc.createElement("option");
+    option.value = family;
+    return option;
+  }));
+
   const DEFAULT_FONT_FAMILY = CONFIG.TEXT.DEFAULT_FONT;
 
   let previewUrl;
@@ -131,6 +156,8 @@ export function mountBuchfaltstudio(root, {
   listen(elements.svgInput, "change", handleFileInputChange);
   listen(elements.columnInput, "input", () => triggerAutoAnalysis());
   listen(elements.heightInput, "input", () => triggerAutoAnalysis());
+  listen(elements.thresholdInput, "input", () => triggerAutoAnalysis());
+  listen(elements.alphaInput, "input", () => triggerAutoAnalysis());
   listen(elements.thicknessInput, "input", () => triggerAutoAnalysis());
   listen(elements.segmentPolicyInput, "change", () => triggerAutoAnalysis());
 
@@ -285,34 +312,11 @@ export function mountBuchfaltstudio(root, {
   }
 
   function updateSummaryText(totalFolds) {
-    const { heightPx, widthPx, bookHeightMm, bookWidthMm, originalWidthPx, activeRange,
-            requestedBookHeightMm, maxHeightMm, originalImageWidth, originalImageHeight } = state.meta;
-
-    const dimensionText = originalWidthPx && originalWidthPx !== widthPx
-      ? `${widthPx}px zugeschnitten von ${originalWidthPx}px Breite × ${heightPx}px Höhe`
-      : `${widthPx}×${heightPx} px`;
-
-    let summaryText = `${state.columns.length} Spalten • ${totalFolds} Falze • ${dimensionText} skaliert auf ${bookWidthMm.toFixed(1)}×${bookHeightMm.toFixed(1)} mm Buch`;
-
+    const { heightPx, widthPx, bookHeightMm, bookWidthMm, originalImageWidth, originalImageHeight } = state.meta;
+    let summaryText = `${state.columns.length} Spalten • ${totalFolds} Falze • ${widthPx}×${heightPx} px skaliert auf ${bookWidthMm.toFixed(1)}×${bookHeightMm.toFixed(1)} mm Buch`;
     if (originalImageWidth && originalImageHeight) {
       summaryText += ` (Original: ${originalImageWidth}×${originalImageHeight}px)`;
     }
-
-    if (
-      Number.isFinite(requestedBookHeightMm) &&
-      Number.isFinite(bookHeightMm) &&
-      bookHeightMm < requestedBookHeightMm &&
-      Number.isFinite(maxHeightMm)
-    ) {
-      summaryText += ` (Höhe auf ${bookHeightMm.toFixed(1)} mm begrenzt, max. ${maxHeightMm.toFixed(1)} mm)`;
-    }
-
-    if (activeRange && originalWidthPx && originalWidthPx !== widthPx) {
-      const croppedLeft = activeRange.start;
-      const croppedRight = Math.max(0, originalWidthPx - (activeRange.end + 1));
-      summaryText += ` (entfernte ${croppedLeft}px linke / ${croppedRight}px rechte leere Ränder)`;
-    }
-
     if (state.meta.omittedSegmentCount) {
       summaryText += ` Achtung: ${state.meta.omittedSegmentCount} Farbstreifen ausgelassen; pro Blatt wird nur ein Streifen abwechselnd gewählt.`;
     }
@@ -413,7 +417,7 @@ export function mountBuchfaltstudio(root, {
       state.textArtUrl = url;
       state.textArtLabel = `Textgrafik: "${text}" · ${fontFamily}`;
       state.textArtMeta = Object.freeze({ text, fontFamily, fontSize, imageFileName: null });
-      setPreviewSource(url, { revocable: true });
+      setPreviewSource(url);
 
       if (previousUrl && previousUrl !== url) {
         urlApi.revokeObjectURL(previousUrl);

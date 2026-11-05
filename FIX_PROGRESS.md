@@ -20,7 +20,7 @@ Each numbered fix is a separate commit; its tests and progress entry are include
 | Dependency availability / integrity | Done | jsPDF 4.2.1 vendored with license and checksum; runtime CDN removed from standalone bootstrap. Lockfile pins test tooling; npm audit reports zero advisories after replacement. |
 | Standalone stylesheet portability | Done | Removed the stylesheet outside the subrepo; browser smoke rejects missing stylesheets. |
 | Accessibility and language | Done | German language declared, mode pressed state exposed, status live regions, keyboard-accessible upload and visible focus. |
-| Other lower-priority observations | Pending | |
+| Configuration consistency | Done | UI defaults, numeric bounds, accepted types and font suggestions initialize from the same deeply frozen module used by validation; duplicate metadata key and obsolete crop-summary code removed. |
 
 ## Checks
 

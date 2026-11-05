@@ -178,3 +178,12 @@ test('destroy invalidates pending text jobs and releases their eventual blob', a
   assert(app.revoked.includes('blob:after-unmount'));
   assert.equal(app.images.length, 0);
 });
+
+test('mounted controls reflect domain bounds, accepted types and font suggestions', async () => {
+  const app = await createApp();
+  assert.equal(app.element('heightInput').max, String(app.config.HEIGHT.MAX));
+  assert.equal(app.element('columnInput').min, String(app.config.PAGES.MIN));
+  assert.equal(app.element('thicknessInput').max, String(app.config.FOLDED_LEAF_WIDTH_MM.MAX));
+  assert.equal(app.element('svgInput').accept, app.config.ACCEPTED_IMAGE_TYPES.join(','));
+  assert.deepEqual(app.element('fontSuggestions').children.map(option => option.value), app.config.TEXT.SUGGESTED_FONTS);
+});

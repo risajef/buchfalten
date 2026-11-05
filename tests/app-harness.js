@@ -14,6 +14,7 @@ export async function createApp(overrides = {}) {
       const classes = new Set();
       const listeners = new Map();
       elements.set(id, {
+        replaceChildren(...children) { this.children = children; },
         value: '', files: [], style: {}, dataset: {}, textContent: '', innerHTML: '',
         classList: { add: x => classes.add(x), remove: x => classes.delete(x), contains: x => classes.has(x) },
         addEventListener(type, fn) { listeners.set(type, fn); },
