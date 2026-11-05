@@ -86,7 +86,7 @@ elements.imageModeBtn?.addEventListener("click", () => setMode("image"));
 // ============================================================================
 
 function triggerAutoAnalysis(delay = CONFIG.DEBOUNCE.AUTO_ANALYSIS) {
-  analysisJobId += 1;
+  invalidateResults();
   if (analysisTimeout) {
     clearTimeout(analysisTimeout);
   }
@@ -127,7 +127,7 @@ if ((elements.textInput?.value || "").trim()) {
 // ============================================================================
 
 function handleFileInputChange() {
-  analysisJobId += 1;
+  invalidateResults();
   invalidateTextRender();
   const [file] = elements.svgInput.files || [];
   if (state.imageArtUrl) URL.revokeObjectURL(state.imageArtUrl);
@@ -146,7 +146,8 @@ function handleFileInputChange() {
 
 elements.plannerForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const jobId = ++analysisJobId;
+  invalidateResults();
+  const jobId = analysisJobId;
   state.previewPending = false;
 
   const source = resolveArtworkSource();
@@ -165,6 +166,7 @@ elements.plannerForm?.addEventListener("submit", async (event) => {
     return;
   }
 
+  setResultStatus("processing");
   elements.summaryLine.textContent = "Analysiere Grafik...";
   elements.foldList.innerHTML = "";
   state.previewPending = true;
@@ -183,7 +185,7 @@ elements.plannerForm?.addEventListener("submit", async (event) => {
     } catch (error) {
       console.error(error);
       elements.summaryLine.textContent = "Verarbeitung fehlgeschlagen. Siehe Konsole für Details.";
-      state.previewPending = false;
+      invalidateResults("error");
     } finally {
       if (source.revoke) {
         URL.revokeObjectURL(source.url);
@@ -193,7 +195,7 @@ elements.plannerForm?.addEventListener("submit", async (event) => {
   img.onerror = () => {
     if (jobId === analysisJobId) {
       elements.summaryLine.textContent = "SVG konnte nicht gelesen werden. Bitte versuche eine andere Datei.";
-      state.previewPending = false;
+      invalidateResults("error");
     }
     if (source.revoke) {
       URL.revokeObjectURL(source.url);
@@ -228,6 +230,8 @@ function renderResults() {
       previewPdf(doc);
     }
   } catch (error) {
+    resetPdfPreview();
+    setResultStatus("error");
     console.error("PDF generation error:", error);
     if (elements.pdfStatus) {
       elements.pdfStatus.textContent = error.message;
@@ -305,6 +309,8 @@ function maybeAutoPreview() {
       previewPdf(doc);
     }
   } catch (error) {
+    resetPdfPreview();
+    setResultStatus("error");
     console.error("Auto-preview error:", error);
   }
 }
@@ -322,8 +328,10 @@ function invalidateTextRender() {
 }
 
 function scheduleTextArtworkRender(delay = 300) {
-  analysisJobId += 1;
+  invalidateResults();
   invalidateTextRender();
+  clearTextArtSource();
+  if (state.mode === "text") setPreviewSource(null);
   const wait = Math.max(0, Number.isFinite(delay) ? delay : 300);
   if (textRenderTimeout) {
     clearTimeout(textRenderTimeout);
@@ -419,7 +427,7 @@ function setPreviewSource(url) {
 
 function resolveArtworkSource() {
   if (state.mode === "text") {
-    return state.textArtUrl ? {
+    return state.textArtUrl && state.textArtMeta ? {
       url: state.textArtUrl, revoke: false, metadata: state.textArtMeta,
     } : null;
   }
@@ -454,7 +462,9 @@ elements.pdfDownloadLink?.addEventListener("click", (e) => {
         }, 100);
       }
     } catch (error) {
-      console.error("PDF generation error:", error);
+      resetPdfPreview();
+    setResultStatus("error");
+    console.error("PDF generation error:", error);
       if (elements.pdfStatus) {
         elements.pdfStatus.textContent = error.message;
       }
@@ -468,6 +478,8 @@ function previewPdf(doc) {
     const blobUrl = URL.createObjectURL(blob);
     attachPdfPreview(blobUrl);
   } catch (error) {
+    resetPdfPreview();
+    setResultStatus("error");
     console.error(error);
     elements.summaryLine.textContent = "Konnte die PDF-Vorschau nicht anzeigen. Siehe Konsole für Details.";
     if (elements.pdfStatus) {
@@ -481,6 +493,7 @@ function attachPdfPreview(blobUrl) {
     URL.revokeObjectURL(pdfPreviewUrl);
   }
   pdfPreviewUrl = blobUrl;
+  setResultStatus("ready");
   
   if (elements.pdfDownloadLink) {
     elements.pdfDownloadLink.href = blobUrl;
@@ -514,9 +527,25 @@ function resetPdfPreview() {
   }
 }
 
+function setResultStatus(status) {
+  state.status = status;
+  elements.plannerForm.dataset.status = status;
+  elements.plannerForm.setAttribute("aria-busy", String(status === "processing"));
+}
+
+function invalidateResults(status = "empty") {
+  analysisJobId += 1;
+  state.columns = [];
+  state.meta = null;
+  state.previewPending = false;
+  resetPdfPreview();
+  elements.foldList.innerHTML = "";
+  updateBookPreview();
+  setResultStatus(status);
+}
+
 // ============================================================================
 // Initialization
 // ============================================================================
 
-updateBookPreview();
-resetPdfPreview();
+invalidateResults();

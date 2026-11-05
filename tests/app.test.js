@@ -90,3 +90,40 @@ test('image mode never falls back to text and both modes retain their source', a
   assert(!app.revoked.includes(imageUrl));
   assert(app.revoked.includes(textUrl)); // replaced by the new text render, not the mode switch
 });
+
+test('input edits immediately revoke a previous PDF before the next analysis', async () => {
+  const app = await imageApp();
+  await app.submit();
+  app.images.at(-1).onload();
+  const href = app.element('pdfDownloadLink').href;
+  assert.equal(app.element('plannerForm').dataset.status, 'ready');
+  app.fire('heightInput', 'input');
+  assert.equal(app.element('pdfDownloadLink').href, '#');
+  assert(app.revoked.includes(href));
+  assert(app.element('pdfDownloadLink').classList.contains('disabled-link'));
+});
+
+test('image failure and missing source cannot leave old instructions downloadable', async () => {
+  const app = await imageApp();
+  await app.submit();
+  app.images.at(-1).onload();
+  await app.submit();
+  app.images.at(-1).onerror();
+  assert.equal(app.element('pdfDownloadLink').href, '#');
+  assert.equal(app.element('plannerForm').dataset.status, 'error');
+  app.element('svgInput').files = [];
+  app.fire('svgInput', 'change');
+  await app.submit();
+  assert.equal(app.element('pdfDownloadLink').href, '#');
+});
+
+test('serialization failure leaves export disabled', async () => {
+  const app = await imageApp({ './js/pdf.js': {
+    createPdfDocument: () => ({ output() { throw new Error('cannot serialize'); } }),
+    buildPdfFileName: () => 'test.pdf',
+  } });
+  await app.submit();
+  app.images.at(-1).onload();
+  assert.equal(app.element('pdfDownloadLink').href, '#');
+  assert.equal(app.element('plannerForm').dataset.status, 'error');
+});

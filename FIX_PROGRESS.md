@@ -8,7 +8,7 @@ Each numbered fix is a separate commit; its tests and progress entry are include
 | 1. Analysis races | Done | Snapshot metadata and reject superseded image callbacks, including edits during debounce; 3 controller regression tests. |
 | 2. Pending text render | Done | Clearing, editing, uploading and switching mode invalidate pending text jobs; superseded blobs are revoked. |
 | 3. Mode and source | Done | Explicit mode and separate retained image/text sources; metadata and preview follow the selected source. Source-owned blobs survive mode switches. |
-| 4. Stale downloads | Pending | |
+| 4. Stale downloads | Done | Input changes immediately revoke export and clear results; explicit empty/processing/ready/error state; failures cannot retain old output. |
 | 5. PDF scale | Pending | |
 | 6. Validation and resource limits | Pending | |
 | 7. Duplicate PDF work | Pending | |
