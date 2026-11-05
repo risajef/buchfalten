@@ -21,6 +21,7 @@ Each numbered fix is a separate commit; its tests and progress entry are include
 | Standalone stylesheet portability | Done | Removed the stylesheet outside the subrepo; browser smoke rejects missing stylesheets. |
 | Accessibility and language | Done | German language declared, mode pressed state exposed, status live regions, keyboard-accessible upload and visible focus. |
 | Configuration consistency | Done | UI defaults, numeric bounds, accepted types and font suggestions initialize from the same deeply frozen module used by validation; duplicate metadata key and obsolete crop-summary code removed. |
+| Preview geometry edge cases | Done | Positive fixed-viewport bounds for narrow/wide calibrated books; fold overlays use the same page rectangle; artwork preview contains the complete image. |
 
 ## Checks
 

@@ -1,115 +1,57 @@
-import { clamp01 } from "./utils.js";
-import { CONFIG } from "./config.js";
-/**
- * Book Preview Rendering Module
- * Handles 2D flat book visualization with fold overlays
- */
+import { clamp01 } from './utils.js';
+import { CONFIG } from './config.js';
 
-export function renderBookPreview(canvas, state) {
-  if (!canvas) {
-    return;
+/** Render the canonical leaf plan in a bounded viewport, including extreme books. */
+export function renderBookPreview(canvas, plan) {
+  if (!canvas) return null;
+  canvas.width = CONFIG.CANVAS.BOOK_PREVIEW_WIDTH;
+  canvas.height = CONFIG.CANVAS.BOOK_PREVIEW_HEIGHT;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const aspect = plan.meta?.bookWidthMm && plan.meta?.bookHeightMm
+    ? plan.meta.bookWidthMm / plan.meta.bookHeightMm
+    : CONFIG.PAGES.DEFAULT * CONFIG.PAGE_THICKNESS_MM / CONFIG.HEIGHT.DEFAULT;
+  const bounds = calculateBookBounds(aspect, canvas.width, canvas.height);
+  drawFlatBook(ctx, bounds);
+  let count = 0;
+  for (const column of plan.columns) {
+    const segment = column.segments[0];
+    if (!segment) continue;
+    const x = bounds.x + ((column.columnIndex - 0.5) / plan.columns.length) * bounds.width;
+    const startY = bounds.y + clamp01(segment.startPercent / 100) * bounds.height;
+    const endY = bounds.y + clamp01(segment.endPercent / 100) * bounds.height;
+    const width = Math.max(0.5, Math.min(bounds.width, bounds.width / plan.columns.length));
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.fillRect(x - width / 2, startY, width, endY - startY);
+    ctx.strokeStyle = 'rgba(120, 83, 45, 0.35)';
+    ctx.strokeRect(x - width / 2, startY, width, endY - startY);
+    count += 1;
   }
-
-  const ctx = canvas.getContext("2d");
-
-  // Use actual image dimensions for aspect ratio
-  const imageWidthPx = state.meta?.widthPx || 1;
-  const imageHeightPx = state.meta?.heightPx || 1;
-  const imageAspectRatio = imageWidthPx / imageHeightPx;
-
-  // Calculate canvas dimensions to maintain image aspect ratio
-  const { canvasWidth, canvasHeight } = calculateCanvasDimensions(imageAspectRatio);
-
-  // Update canvas dimensions
-  canvas.width = canvasWidth;
-  canvas.height = canvasHeight;
-
-  ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-
-  drawFlatBook(ctx, canvasWidth, canvasHeight);
-
-  const activeSegments = state.columns
-    .map((col) => (col.segments[0] ? { columnIndex: col.columnIndex, segment: col.segments[0] } : null))
-    .filter(Boolean);
-
-  if (!activeSegments.length) {
-    return null;
-  }
-
-  const totalColumns = state.columns.length || 1;
-  activeSegments.forEach(({ columnIndex, segment }) => {
-    const ratio = totalColumns <= 1 ? 0.5 : (columnIndex - 1) / (totalColumns - 1);
-    drawFlatFold(ctx, ratio, segment, { width: canvasWidth, height: canvasHeight });
-  });
-
-  return activeSegments.length;
+  return count;
 }
 
-function calculateCanvasDimensions(imageAspectRatio) {
-  const canvasMaxWidth = CONFIG.CANVAS.BOOK_PREVIEW_WIDTH;
-  const canvasMaxHeight = CONFIG.CANVAS.BOOK_PREVIEW_HEIGHT;
-
-  let canvasWidth, canvasHeight;
-
-  if (imageAspectRatio > canvasMaxWidth / canvasMaxHeight) {
-    // Width is the limiting factor
-    canvasWidth = canvasMaxWidth;
-    canvasHeight = canvasMaxWidth / imageAspectRatio;
-  } else {
-    // Height is the limiting factor
-    canvasHeight = canvasMaxHeight;
-    canvasWidth = canvasHeight * imageAspectRatio;
-  }
-
-  return { canvasWidth, canvasHeight };
+export function calculateBookBounds(aspect, viewportWidth, viewportHeight) {
+  const availableWidth = viewportWidth - 60;
+  const availableHeight = viewportHeight - 60;
+  const width = Math.max(1, Math.min(availableWidth, availableHeight * aspect));
+  const height = Math.max(1, Math.min(availableHeight, availableWidth / aspect));
+  return { x: (viewportWidth - width) / 2, y: (viewportHeight - height) / 2, width, height };
 }
 
-function drawFlatBook(ctx, width, height) {
-  const margin = 24;
-  ctx.fillStyle = "#f4ead2";
-  ctx.fillRect(0, 0, width, height);
-
-  ctx.fillStyle = "#7b0f12";
-  ctx.fillRect(margin / 2, margin / 2, width - margin, height - margin);
-
-  const pageWidth = width - margin * 2;
-  const pageHeight = height - margin * 2;
-  const pageX = margin;
-  const pageY = margin;
-
-  const gradient = ctx.createLinearGradient(pageX, pageY, pageX + pageWidth, pageY);
-  gradient.addColorStop(0, "#f9f0d7");
-  gradient.addColorStop(0.5, "#fdf7df");
-  gradient.addColorStop(1, "#f9f0d7");
+function drawFlatBook(ctx, { x, y, width, height }) {
+  ctx.fillStyle = '#7b0f12';
+  ctx.fillRect(x - 6, y - 6, width + 12, height + 12);
+  const gradient = ctx.createLinearGradient(x, y, x + width, y);
+  gradient.addColorStop(0, '#f9f0d7');
+  gradient.addColorStop(0.5, '#fdf7df');
+  gradient.addColorStop(1, '#f9f0d7');
   ctx.fillStyle = gradient;
-  ctx.fillRect(pageX, pageY, pageWidth, pageHeight);
-
-  ctx.strokeStyle = "rgba(120, 83, 45, 0.4)";
+  ctx.fillRect(x, y, width, height);
+  ctx.strokeStyle = 'rgba(120, 83, 45, 0.4)';
   ctx.lineWidth = 1;
-  ctx.strokeRect(pageX, pageY, pageWidth, pageHeight);
-
-  const spineX = width / 2;
-  ctx.strokeStyle = "rgba(120, 83, 45, 0.5)";
+  ctx.strokeRect(x, y, width, height);
   ctx.beginPath();
-  ctx.moveTo(spineX, pageY);
-  ctx.lineTo(spineX, pageY + pageHeight);
+  ctx.moveTo(x + width / 2, y);
+  ctx.lineTo(x + width / 2, y + height);
   ctx.stroke();
-}
-
-function drawFlatFold(ctx, ratio, segment, viewport) {
-  const { width, height } = viewport;
-  const margin = 30;
-  const pageWidth = width - margin * 2;
-  const pageHeight = height - margin * 2;
-  const columnX = margin + ratio * pageWidth;
-
-  const startY = margin + clamp01(segment.startPercent / 100) * pageHeight;
-  const endY = margin + clamp01(segment.endPercent / 100) * pageHeight;
-  const foldWidth = Math.max(1, pageWidth * 0.004);
-
-  ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
-  ctx.fillRect(columnX - foldWidth / 2, startY, foldWidth, endY - startY);
-  ctx.strokeStyle = "rgba(120, 83, 45, 0.35)";
-  ctx.lineWidth = 1;
-  ctx.strokeRect(columnX - foldWidth / 2, startY, foldWidth, endY - startY);
 }
