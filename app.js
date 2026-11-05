@@ -53,6 +53,7 @@ let pdfPreviewUrl = null;
 let textRenderTimeout = null;
 let textRenderJobId = 0;
 let analysisTimeout = null;
+let analysisJobId = 0;
 
 // ============================================================================
 // Mode Switching
@@ -79,6 +80,7 @@ elements.imageModeBtn?.addEventListener("click", () => {
 // ============================================================================
 
 function triggerAutoAnalysis(delay = CONFIG.DEBOUNCE.AUTO_ANALYSIS) {
+  analysisJobId += 1;
   if (analysisTimeout) {
     clearTimeout(analysisTimeout);
   }
@@ -119,6 +121,7 @@ if ((elements.textInput?.value || "").trim()) {
 // ============================================================================
 
 function handleFileInputChange() {
+  analysisJobId += 1;
   const [file] = elements.svgInput.files || [];
   if (!file) {
     if (state.textArtUrl) {
@@ -146,6 +149,7 @@ function handleFileInputChange() {
 
 elements.plannerForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const jobId = ++analysisJobId;
   state.previewPending = false;
 
   const source = resolveArtworkSource();
@@ -168,19 +172,20 @@ elements.plannerForm?.addEventListener("submit", async (event) => {
   elements.foldList.innerHTML = "";
   state.previewPending = true;
 
+  const metadata = Object.freeze({
+    text: elements.textInput?.value || state.textArtLabel || "",
+    fontFamily: elements.fontInput?.value || DEFAULT_FONT_FAMILY,
+    fontSize: Number(elements.fontSizeInput?.value) || null,
+    imageFileName: state.inputFileName || null,
+  });
   const img = new Image();
   img.onload = () => {
     try {
+      if (jobId !== analysisJobId) return;
       const result = analyzeImage(img, { columns, bookHeight, darkThreshold, alphaThreshold });
       state.columns = result.columns;
       state.meta = result.meta;
-      // Attach UI-provided metadata so the PDF can show font, text and filename
-      state.meta.text = elements.textInput?.value || state.textArtLabel || "";
-      state.meta.fontFamily = elements.fontInput?.value || DEFAULT_FONT_FAMILY;
-      state.meta.fontSize = Number(elements.fontSizeInput?.value) || null;
-      if (state.inputFileName) {
-        state.meta.imageFileName = state.inputFileName;
-      }
+      Object.assign(state.meta, metadata);
       renderResults();
       maybeAutoPreview();
     } catch (error) {
@@ -194,8 +199,10 @@ elements.plannerForm?.addEventListener("submit", async (event) => {
     }
   };
   img.onerror = () => {
-    elements.summaryLine.textContent = "SVG konnte nicht gelesen werden. Bitte versuche eine andere Datei.";
-    state.previewPending = false;
+    if (jobId === analysisJobId) {
+      elements.summaryLine.textContent = "SVG konnte nicht gelesen werden. Bitte versuche eine andere Datei.";
+      state.previewPending = false;
+    }
     if (source.revoke) {
       URL.revokeObjectURL(source.url);
     }
@@ -315,6 +322,7 @@ function maybeAutoPreview() {
 // ============================================================================
 
 function scheduleTextArtworkRender(delay = 300) {
+  analysisJobId += 1;
   const wait = Math.max(0, Number.isFinite(delay) ? delay : 300);
   if (textRenderTimeout) {
     clearTimeout(textRenderTimeout);
