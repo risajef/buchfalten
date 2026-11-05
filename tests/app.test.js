@@ -187,3 +187,16 @@ test('mounted controls reflect domain bounds, accepted types and font suggestion
   assert.equal(app.element('svgInput').accept, app.config.ACCEPTED_IMAGE_TYPES.join(','));
   assert.deepEqual(app.element('fontSuggestions').children.map(option => option.value), app.config.TEXT.SUGGESTED_FONTS);
 });
+
+test('blank artwork leaves processing state without enabling export', async () => {
+  const app = await imageApp({ './analysis.js': {
+    analyzeImage: () => ({ columns: [{ columnIndex: 1, segments: [] }], meta: { widthPx: 100, heightPx: 100 } }),
+  } });
+  await app.submit();
+  assert.equal(app.element('plannerForm')['aria-busy'], 'true');
+  app.images.at(-1).onload();
+  assert.equal(app.element('plannerForm').dataset.status, 'empty');
+  assert.equal(app.element('plannerForm')['aria-busy'], 'false');
+  assert.equal(app.element('pdfDownloadLink').href, '#');
+  assert.equal(app.plans.length, 0);
+});

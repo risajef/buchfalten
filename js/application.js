@@ -284,6 +284,7 @@ export function mountBuchfaltstudio(root, {
     const totalFolds = state.columns.reduce((sum, col) => sum + col.segments.length, 0);
 
     if (!totalFolds) {
+      setResultStatus("empty");
       elements.summaryLine.textContent = "Keine Farbbänder erkannt. Verwende ein kontrastreiches Motiv.";
       elements.foldList.innerHTML = "";
       resetPdfPreview();
@@ -400,6 +401,7 @@ export function mountBuchfaltstudio(root, {
       CONFIG.TEXT.PADDING_PERCENT.MAX
     );
 
+    setResultStatus("processing");
     if (elements.textStatus) {
       elements.textStatus.textContent = "Textgrafik wird gerendert...";
     }

@@ -22,6 +22,7 @@ Each numbered fix is a separate commit; its tests and progress entry are include
 | Accessibility and language | Done | German language declared, mode pressed state exposed, status live regions, keyboard-accessible upload and visible focus. |
 | Configuration consistency | Done | UI defaults, numeric bounds, accepted types and font suggestions initialize from the same deeply frozen module used by validation; duplicate metadata key and obsolete crop-summary code removed. |
 | Preview geometry edge cases | Done | Positive fixed-viewport bounds for narrow/wide calibrated books; fold overlays use the same page rectangle; artwork preview contains the complete image. |
+| Empty-result lifecycle | Done | Blank artwork ends processing with export disabled; font rendering participates in the busy state. |
 
 ## Checks
 
