@@ -3,6 +3,7 @@
  * Book folding pattern generator
  */
 
+import { validateAnalysisOptions, validateImageFile } from './js/validation.js';
 import { analyzeImage } from './js/analysis.js';
 import { createPdfDocument, buildPdfFileName } from './js/pdf.js';
 import { createTextArtworkUrl, clampNumber } from './js/textRenderer.js';
@@ -131,6 +132,18 @@ function handleFileInputChange() {
   invalidateTextRender();
   const [file] = elements.svgInput.files || [];
   if (state.imageArtUrl) URL.revokeObjectURL(state.imageArtUrl);
+  state.imageFile = null;
+  state.imageArtUrl = null;
+  if (file) {
+    try { validateImageFile(file); }
+    catch (error) {
+      setPreviewSource(null);
+      elements.fileName.textContent = error.message;
+      elements.summaryLine.textContent = error.message;
+      setResultStatus("error");
+      return;
+    }
+  }
   state.imageFile = file || null;
   state.imageArtUrl = file ? URL.createObjectURL(file) : null;
   elements.fileName.textContent = file?.name || "Noch keine Datei ausgewählt";
@@ -150,19 +163,20 @@ elements.plannerForm?.addEventListener("submit", async (event) => {
   const jobId = analysisJobId;
   state.previewPending = false;
 
-  const source = resolveArtworkSource();
-  if (!source) {
-    elements.summaryLine.textContent = "Lade zuerst eine SVG hoch oder rendere Textgrafiken.";
-    return;
-  }
-
   const columns = Number(elements.columnInput.value);
   const bookHeight = Number(elements.heightInput.value);
   const darkThreshold = Number(elements.thresholdInput.value);
   const alphaThreshold = Number(elements.alphaInput.value);
 
-  if (!Number.isFinite(columns) || columns <= 0) {
-    elements.summaryLine.textContent = "Die Anzahl der Spalten muss eine positive Zahl sein.";
+  try { validateAnalysisOptions({ columns, bookHeight, darkThreshold, alphaThreshold }); }
+  catch (error) {
+    elements.summaryLine.textContent = error.message;
+    setResultStatus("error");
+    return;
+  }
+  const source = resolveArtworkSource();
+  if (!source) {
+    elements.summaryLine.textContent = "Gib Text ein oder wähle im Bildmodus eine Bilddatei.";
     return;
   }
 
@@ -184,7 +198,7 @@ elements.plannerForm?.addEventListener("submit", async (event) => {
       maybeAutoPreview();
     } catch (error) {
       console.error(error);
-      elements.summaryLine.textContent = "Verarbeitung fehlgeschlagen. Siehe Konsole für Details.";
+      elements.summaryLine.textContent = error.message || "Verarbeitung fehlgeschlagen.";
       invalidateResults("error");
     } finally {
       if (source.revoke) {
@@ -351,6 +365,11 @@ async function performTextArtworkRender() {
     return;
   }
 
+  if ([...text].length > CONFIG.TEXT.MAX_LENGTH) {
+    elements.textStatus.textContent = `Höchstens ${CONFIG.TEXT.MAX_LENGTH} Zeichen erlaubt.`;
+    setResultStatus("error");
+    return;
+  }
   const fontFamily = normalizeFontName(elements.fontInput?.value) || DEFAULT_FONT_FAMILY;
   const fontSize = clampNumber(
     Number(elements.fontSizeInput?.value) || CONFIG.TEXT.FONT_SIZE.DEFAULT,

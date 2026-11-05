@@ -3,7 +3,10 @@
  * Handles image processing, column slicing, and segment detection
  */
 
+import { validateAnalysisOptions } from "./validation.js";
+
 export function analyzeImage(image, options) {
+  validateAnalysisOptions(options);
   const { columns, bookHeight, darkThreshold, alphaThreshold } = options;
   
   // Calculate physical book dimensions
@@ -14,6 +17,12 @@ export function analyzeImage(image, options) {
   const originalWidth = image.naturalWidth || image.width;
   const originalHeight = image.naturalHeight || image.height;
   
+  if (!Number.isFinite(originalWidth) || !Number.isFinite(originalHeight) ||
+      originalWidth <= 0 || originalHeight <= 0 ||
+      originalWidth * originalHeight > CONFIG.LIMITS.MAX_SOURCE_PIXELS) {
+    throw new Error("Bildabmessungen ungültig oder grösser als 40 Megapixel.");
+  }
+
   // Calculate canvas size to represent full book dimensions in pixels
   // We need to maintain the book's physical aspect ratio
   const bookAspectRatio = bookWidthMm / resolvedBookHeightMm;
@@ -21,7 +30,7 @@ export function analyzeImage(image, options) {
   // Scale image to fit within book dimensions while maintaining aspect ratio
   // The canvas represents the full book, image is centered with white space
   const { canvasWidth, canvasHeight, imageWidth, imageHeight, imageX, imageY } = 
-    calculateImageLayout(originalWidth, originalHeight, bookAspectRatio);
+    calculateImageLayout(originalWidth, originalHeight, bookAspectRatio, columns);
   
   // Draw scaled image to canvas with proper centering
   const canvas = document.getElementById('analysisCanvas');
@@ -57,13 +66,16 @@ export function analyzeImage(image, options) {
   };
 }
 
-function calculateImageLayout(originalWidth, originalHeight, bookAspectRatio) {
+export function calculateImageLayout(originalWidth, originalHeight, bookAspectRatio, columns) {
   const imageAspectRatio = originalWidth / originalHeight;
   
-  // Use original image height as reference, calculate canvas dimensions from it
-  const canvasHeight = originalHeight;
-  const canvasWidth = canvasHeight * bookAspectRatio;
-  
+  const { MAX_CANVAS_EDGE, MAX_CANVAS_PIXELS } = CONFIG.LIMITS;
+  const referenceHeight = Math.min(originalHeight, MAX_CANVAS_EDGE,
+    MAX_CANVAS_EDGE / bookAspectRatio, Math.sqrt(MAX_CANVAS_PIXELS / bookAspectRatio));
+  // At least one horizontal sample per requested column, within a fixed pixel budget.
+  const canvasWidth = Math.max(columns, Math.floor(referenceHeight * bookAspectRatio));
+  const canvasHeight = Math.max(1, Math.floor(canvasWidth / bookAspectRatio));
+
   // Now fit the image within this canvas while maintaining its aspect ratio
   let imageWidth, imageHeight;
   
@@ -101,6 +113,9 @@ function renderImageToCanvas(canvas, image, canvasWidth, canvasHeight, imageWidt
 }
 
 export function sliceColumns(imageData, columnCount, thresholds, activeRange) {
+  if (!Number.isInteger(columnCount) || columnCount < CONFIG.PAGES.MIN || columnCount > CONFIG.PAGES.MAX) {
+    throw new Error("Ungültige Spaltenanzahl.");
+  }
   const { data, width, height } = imageData;
   const { darkThreshold, alphaThreshold } = thresholds;
   const range = activeRange || { start: 0, end: width - 1, width };

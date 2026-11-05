@@ -127,3 +127,12 @@ test('serialization failure leaves export disabled', async () => {
   assert.equal(app.element('pdfDownloadLink').href, '#');
   assert.equal(app.element('plannerForm').dataset.status, 'error');
 });
+
+test('automatic submit cannot bypass physical input validation', async () => {
+  const app = await imageApp();
+  app.element('columnInput').value = '2.5';
+  app.fire('columnInput', 'input');
+  await app.flushTimers();
+  assert.equal(app.images.length, 0);
+  assert.equal(app.element('plannerForm').dataset.status, 'error');
+});

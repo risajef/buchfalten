@@ -38,6 +38,12 @@ export async function createApp(overrides = {}) {
   vm.runInContext(await readFile(new URL('../config.js', import.meta.url), 'utf8'), context);
   const config = vm.runInContext('CONFIG', context);
   const dependencies = {
+    './js/validation.js': {
+      validateAnalysisOptions: options => {
+        if (!Number.isInteger(options.columns) || options.columns < 10 || options.columns > 1200 || !Number.isFinite(options.bookHeight) || options.bookHeight < 80 || options.bookHeight > 400) throw new Error('Invalid dimensions');
+      },
+      validateImageFile: file => { if (file.size > config.LIMITS.MAX_FILE_BYTES || !config.ACCEPTED_IMAGE_TYPES.includes(file.type)) throw new Error('Invalid file'); },
+    },
     './js/analysis.js': { analyzeImage: (_img, options) => ({
       columns: [{ columnIndex: 1, segments: [{ startMm: 0, endMm: 10, heightMm: 10 }] }],
       meta: { widthPx: 100, heightPx: 100, bookHeightMm: options.bookHeight, bookWidthMm: options.columns },

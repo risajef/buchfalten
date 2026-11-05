@@ -55,7 +55,7 @@ const CONFIG = {
   HEIGHT: {
     MIN: 80,
     DEFAULT: 210,
-    MAX: 259
+    MAX: 400
   },
   
   // Auto-render delays (in ms)
@@ -81,6 +81,13 @@ const CONFIG = {
     "image/webp"
   ],
   
+  LIMITS: {
+    MAX_FILE_BYTES: 10 * 1024 * 1024,
+    MAX_SOURCE_PIXELS: 40_000_000,
+    MAX_CANVAS_EDGE: 2048,
+    MAX_CANVAS_PIXELS: 2_000_000,
+  },
+
   // Canvas dimensions
   CANVAS: {
     BOOK_PREVIEW_WIDTH: 600,
@@ -101,3 +108,5 @@ Object.freeze(CONFIG.HEIGHT);
 Object.freeze(CONFIG.DEBOUNCE);
 Object.freeze(CONFIG.FONT);
 Object.freeze(CONFIG.CANVAS);
+
+Object.freeze(CONFIG.LIMITS);
