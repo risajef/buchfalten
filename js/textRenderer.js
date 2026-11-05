@@ -8,7 +8,7 @@ import { ensureFontLoaded, buildCanvasFontValue } from './fonts.js';
 export async function createTextArtworkUrl(config) {
   const { text, fontFamily, fontSize, paddingPercent } = config;
   
-  await ensureFontLoaded(fontFamily, fontSize);
+  await ensureFontLoaded(fontFamily, fontSize, { text });
   
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");

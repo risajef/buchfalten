@@ -14,7 +14,7 @@ Each numbered fix is a separate commit; its tests and progress entry are include
 | 7. Duplicate PDF work | Done | One export path per accepted result; removed redundant auto-preview and download regeneration paths. |
 | 8. PDF metadata | Done | Source metadata reaches export; wrapped header lines reserve their own space and participate in orientation / scale selection. |
 | 9. Physical model and fold plan | Done | Documented leaves and calibrated width; explicit lossy-alternation / reject choice; immutable selected/detected bands; contain aspect ratio; preview and PDF preserve blank columns and indices. |
-| 10. Font loading | Pending | |
+| 10. Font loading | Done | Validated names and encoded parameters; whole-operation timeout; failed links removed for retry; requested glyphs loaded with no silent font fallback. |
 | 11. Duplicate code and dependencies | Pending | |
 | 12. Regression suite / CI | In progress | Native Node test runner; no runtime dependencies added. |
 | Lower-priority observations | Pending | |

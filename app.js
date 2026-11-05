@@ -355,7 +355,7 @@ async function performTextArtworkRender() {
     setResultStatus("error");
     return;
   }
-  const fontFamily = normalizeFontName(elements.fontInput?.value) || DEFAULT_FONT_FAMILY;
+  let fontFamily;
   const fontSize = clampNumber(
     Number(elements.fontSizeInput?.value) || CONFIG.TEXT.FONT_SIZE.DEFAULT,
     CONFIG.TEXT.FONT_SIZE.MIN,
@@ -372,6 +372,7 @@ async function performTextArtworkRender() {
   }
 
   try {
+    fontFamily = normalizeFontName(elements.fontInput?.value) || DEFAULT_FONT_FAMILY;
     const url = await createTextArtworkUrl({ text, fontFamily, fontSize, paddingPercent });
     
     if (jobId !== textRenderJobId || state.mode !== "text") {
@@ -400,7 +401,8 @@ async function performTextArtworkRender() {
     if (jobId !== textRenderJobId) return;
     
     if (elements.textStatus) {
-      elements.textStatus.textContent = "Text konnte nicht gerendert werden. Versuche kürzeren Text oder eine kleinere Schriftgrösse.";
+      elements.textStatus.textContent = error.message || "Text konnte nicht gerendert werden.";
+      setResultStatus("error");
     }
   }
 }
