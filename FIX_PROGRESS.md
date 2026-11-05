@@ -11,7 +11,7 @@ Each numbered fix is a separate commit; its tests and progress entry are include
 | 4. Stale downloads | Done | Input changes immediately revoke export and clear results; explicit empty/processing/ready/error state; failures cannot retain old output. |
 | 5. PDF scale | Done | Explicit schematic/true-size labels, a 50 mm print calibration line, authoritative start/end/height measurement tables; no artificial minimum band height. |
 | 6. Validation and resource limits | Done | Boundary validation, 10 MB file / 40 MP source limits, bounded 2048-edge / 2 MP rasterization; fractional/out-of-range inputs rejected; height unified at 80–400 mm. |
-| 7. Duplicate PDF work | Pending | |
+| 7. Duplicate PDF work | Done | One export path per accepted result; removed redundant auto-preview and download regeneration paths. |
 | 8. PDF metadata | Pending | |
 | 9. Physical model and fold plan | Pending | Preserve existing thickness / allocation policy unless explicitly exposed as a choice. |
 | 10. Font loading | Pending | |

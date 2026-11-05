@@ -136,3 +136,12 @@ test('automatic submit cannot bypass physical input validation', async () => {
   assert.equal(app.images.length, 0);
   assert.equal(app.element('plannerForm').dataset.status, 'error');
 });
+
+test('one accepted result constructs exactly one PDF', async () => {
+  const app = await imageApp();
+  await app.submit();
+  app.images.at(-1).onload();
+  assert.equal(app.plans.length, 1);
+  app.fire('pdfDownloadLink', 'click');
+  assert.equal(app.plans.length, 1);
+});

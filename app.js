@@ -18,7 +18,6 @@ const state = {
   textArtMeta: null,
   columns: [],
   meta: null,
-  previewPending: false,
   textArtUrl: null,
   textArtLabel: "",
 };
@@ -161,7 +160,6 @@ elements.plannerForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   invalidateResults();
   const jobId = analysisJobId;
-  state.previewPending = false;
 
   const columns = Number(elements.columnInput.value);
   const bookHeight = Number(elements.heightInput.value);
@@ -183,7 +181,6 @@ elements.plannerForm?.addEventListener("submit", async (event) => {
   setResultStatus("processing");
   elements.summaryLine.textContent = "Analysiere Grafik...";
   elements.foldList.innerHTML = "";
-  state.previewPending = true;
 
   const metadata = source.metadata;
   const img = new Image();
@@ -195,7 +192,6 @@ elements.plannerForm?.addEventListener("submit", async (event) => {
       state.meta = result.meta;
       Object.assign(state.meta, metadata);
       renderResults();
-      maybeAutoPreview();
     } catch (error) {
       console.error(error);
       elements.summaryLine.textContent = error.message || "Verarbeitung fehlgeschlagen.";
@@ -306,26 +302,6 @@ function updateBookPreview() {
         ? `Vorschau ${state.textArtLabel}` 
         : "Vorschau der Falzdichte";
     }
-  }
-}
-
-function maybeAutoPreview() {
-  if (!state.previewPending) return;
-  
-  state.previewPending = false;
-  const hasSegments = state.columns.some((col) => col.segments.length);
-  
-  if (!hasSegments) return;
-  
-  try {
-    const doc = createPdfDocument(state);
-    if (doc) {
-      previewPdf(doc);
-    }
-  } catch (error) {
-    resetPdfPreview();
-    setResultStatus("error");
-    console.error("Auto-preview error:", error);
   }
 }
 
@@ -460,35 +436,8 @@ function resolveArtworkSource() {
 // PDF Management
 // ============================================================================
 
-elements.pdfDownloadLink?.addEventListener("click", (e) => {
-  if (elements.pdfDownloadLink.classList.contains("disabled-link")) {
-    e.preventDefault();
-    return;
-  }
-  
-  // If no PDF exists yet, generate it
-  if (!pdfPreviewUrl && state.columns.length) {
-    e.preventDefault();
-    try {
-      const doc = createPdfDocument(state);
-      if (doc) {
-        previewPdf(doc);
-        // Trigger download after generation
-        setTimeout(() => {
-          if (elements.pdfDownloadLink.href && elements.pdfDownloadLink.href !== "#") {
-            elements.pdfDownloadLink.click();
-          }
-        }, 100);
-      }
-    } catch (error) {
-      resetPdfPreview();
-    setResultStatus("error");
-    console.error("PDF generation error:", error);
-      if (elements.pdfStatus) {
-        elements.pdfStatus.textContent = error.message;
-      }
-    }
-  }
+elements.pdfDownloadLink?.addEventListener("click", (event) => {
+  if (!pdfPreviewUrl || state.status !== "ready") event.preventDefault();
 });
 
 function previewPdf(doc) {
@@ -556,7 +505,6 @@ function invalidateResults(status = "empty") {
   analysisJobId += 1;
   state.columns = [];
   state.meta = null;
-  state.previewPending = false;
   resetPdfPreview();
   elements.foldList.innerHTML = "";
   updateBookPreview();
