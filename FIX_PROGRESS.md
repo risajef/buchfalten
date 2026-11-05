@@ -18,6 +18,7 @@ Each numbered fix is a separate commit; its tests and progress entry are include
 | 11. Duplicate code and dependencies | Done | Removed inactive main.js; imported deeply frozen config/shared utilities; analysis canvas and PDF factory injected; root-scoped mount API disposes listeners, timers and blobs. Existing embed entry path preserved. |
 | 12. Regression suite / CI | Done | Native Node regressions plus real jsPDF/checksum tests; real Chromium smoke passed; subrepo-only CI runs both. |
 | Dependency availability / integrity | Done | jsPDF 4.2.1 vendored with license and checksum; runtime CDN removed from standalone bootstrap. Lockfile pins test tooling; npm audit reports zero advisories after replacement. |
+| Standalone stylesheet portability | Done | Removed the stylesheet outside the subrepo; browser smoke rejects missing stylesheets. |
 | Other lower-priority observations | Pending | |
 
 ## Checks

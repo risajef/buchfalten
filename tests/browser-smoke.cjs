@@ -28,6 +28,8 @@ const os = require('node:os');
     browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
     const page = await browser.newPage();
     const errors = [];
+    const missingStyles = [];
+    page.on("response", response => { if (response.url().endsWith(".css") && !response.ok()) missingStyles.push(response.url()); });
     page.on('pageerror', error => errors.push(error.message));
     await page.setRequestInterception(true);
     page.on('request', request => {
@@ -76,6 +78,7 @@ const os = require('node:os');
     await status('ready');
     assert.match(await pdfText(), /bands\.svg/);
     assert.deepEqual(errors, []);
+    assert.deepEqual(missingStyles, []);
     console.log('Browser smoke passed: image/canvas analysis, retained modes, validation, font success/failure, stale exports and real PDF blobs.');
   } finally {
     if (browser) await browser.close();
