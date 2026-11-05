@@ -24,7 +24,7 @@ export function createPdfDocument(state) {
   // vertical track area on an A4 landscape page.
   // A4 landscape height is 210mm; with marginY=10 and headerHeight=18 we get 172mm.
   const marginY = 10;
-  const headerHeight = 18;
+  const headerHeight = 30;
   const trackTop = marginY + headerHeight;
   const a4LandscapeHeightMm = 210;
   const landscapeMaxTrackHeightMm = a4LandscapeHeightMm - marginY - trackTop;
@@ -53,6 +53,7 @@ export function createPdfDocument(state) {
   });
 
   renderPdfPages(doc, printableColumns, layout);
+  renderMeasurementPages(doc, printableColumns, layout);
 
   return doc;
 }
@@ -63,7 +64,7 @@ function createPdfLayout(params) {
   const layout = {
     marginX: 10,
     marginY: 10,
-    headerHeight: 18,
+    headerHeight: 30,
     axisWidth: 12,
     columnWidth: 4.5,
     columnGap: 1.8,
@@ -175,6 +176,16 @@ function startPdfPage(doc, layout, pageNumber) {
     marginX,
     marginY + 15
   );
+  const scaleText = layout.scale === 1
+    ? "Massstab 1:1. Mit 100 % drucken; Kontrolllinie nachmessen."
+    : `Skizze: ${(layout.scale * 100).toFixed(1)} %. Nicht abmessen; Millimeter-Tabelle verwenden.`;
+  doc.text(scaleText, marginX, marginY + 20);
+  doc.text("Alle Falzpositionen: siehe Millimeter-Tabelle am Ende.", marginX, marginY + 25);
+  const rulerX = pageWidth - marginX - 50;
+  doc.text("Kontrolllinie: 50 mm", rulerX, marginY + 9);
+  doc.line(rulerX, marginY + 12, rulerX + 50, marginY + 12);
+  doc.line(rulerX, marginY + 11, rulerX, marginY + 13);
+  doc.line(rulerX + 50, marginY + 11, rulerX + 50, marginY + 13);
   // Additional metadata: font, text, image filename
   if (fontFamily) {
     const fontLine = `Schrift: ${fontFamily}${fontSize ? ` ${fontSize}px` : ""}`;
@@ -248,9 +259,35 @@ function drawCompactColumn(doc, columnEntry, layout, positionIndex) {
   // Draw fold segment
   const segment = columnEntry.segment;
   const segY = trackTop + segment.startMm * scale;
-  const segHeight = Math.max(0.4, segment.heightMm * scale);
+  const segHeight = segment.heightMm * scale;
   doc.setFillColor(60);
   doc.rect(xStart + 0.2, segY, columnWidth - 0.4, segHeight, "F");
+}
+
+// Numeric measurements are authoritative even when a tall book needs a schematic.
+function renderMeasurementPages(doc, columns, layout) {
+  if (!columns.some(column => column.segment)) return;
+  let y = layout.pageHeight;
+  for (const column of columns) {
+    if (y + 6 > layout.pageHeight - 10) {
+      doc.addPage();
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(12);
+      doc.text("Falzpositionen in Millimetern", 10, 15);
+      doc.setFontSize(9);
+      doc.text("Alle Positionen ab der oberen Buchkante messen.", 10, 21);
+      doc.text(`Buchhöhe: ${layout.bookHeightMm} mm`, 10, 27);
+      doc.text("Spalte / Falz       Anfang (mm)       Ende (mm)       Höhe (mm)", 10, 35);
+      y = 42;
+    }
+    const segment = column.segment;
+    const label = column.segmentCount > 1
+      ? `${column.columnIndex} / ${column.segmentIndex}` : `${column.columnIndex}`;
+    doc.text(segment
+      ? `${label}                         ${segment.startMm.toFixed(1)}                  ${segment.endMm.toFixed(1)}                  ${segment.heightMm.toFixed(1)}`
+      : `${label}                         Leer - keine Falze`, 10, y);
+    y += 6;
+  }
 }
 
 function explodeColumns(columns) {
