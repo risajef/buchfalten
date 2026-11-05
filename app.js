@@ -11,6 +11,10 @@ import { renderBookPreview } from './js/preview.js';
 
 // Application State
 const state = {
+  mode: "text",
+  imageFile: null,
+  imageArtUrl: null,
+  textArtMeta: null,
   columns: [],
   meta: null,
   previewPending: false,
@@ -48,7 +52,6 @@ const elements = {
 const DEFAULT_FONT_FAMILY = CONFIG.TEXT.DEFAULT_FONT;
 
 let previewUrl;
-let previewUrlRevocable = false;
 let pdfPreviewUrl = null;
 let textRenderTimeout = null;
 let textRenderJobId = 0;
@@ -59,23 +62,24 @@ let analysisJobId = 0;
 // Mode Switching
 // ============================================================================
 
-elements.textModeBtn?.addEventListener("click", () => {
+function setMode(mode) {
+  state.mode = mode;
   invalidateTextRender();
-  elements.textModeBtn.classList.add("active");
-  elements.imageModeBtn.classList.remove("active");
-  elements.textMode.style.display = "block";
-  elements.imageMode.style.display = "none";
-  triggerAutoAnalysis();
-});
+  elements.textModeBtn.classList[mode === "text" ? "add" : "remove"]("active");
+  elements.imageModeBtn.classList[mode === "image" ? "add" : "remove"]("active");
+  elements.textMode.style.display = mode === "text" ? "block" : "none";
+  elements.imageMode.style.display = mode === "image" ? "block" : "none";
+  if (mode === "text") {
+    setPreviewSource(state.textArtUrl);
+    scheduleTextArtworkRender(0);
+  } else {
+    setPreviewSource(state.imageArtUrl);
+    triggerAutoAnalysis();
+  }
+}
 
-elements.imageModeBtn?.addEventListener("click", () => {
-  invalidateTextRender();
-  elements.imageModeBtn.classList.add("active");
-  elements.textModeBtn.classList.remove("active");
-  elements.imageMode.style.display = "block";
-  elements.textMode.style.display = "none";
-  triggerAutoAnalysis();
-});
+elements.textModeBtn?.addEventListener("click", () => setMode("text"));
+elements.imageModeBtn?.addEventListener("click", () => setMode("image"));
 
 // ============================================================================
 // Auto-Analysis Triggers
@@ -126,24 +130,14 @@ function handleFileInputChange() {
   analysisJobId += 1;
   invalidateTextRender();
   const [file] = elements.svgInput.files || [];
-  if (!file) {
-    if (state.textArtUrl) {
-      elements.fileName.textContent = state.textArtLabel || "Text artwork ready";
-      setPreviewSource(state.textArtUrl, { revocable: true });
-    } else {
-      elements.fileName.textContent = "No artwork selected yet";
-      setPreviewSource(null);
-    }
-    state.inputFileName = null;
-    return;
+  if (state.imageArtUrl) URL.revokeObjectURL(state.imageArtUrl);
+  state.imageFile = file || null;
+  state.imageArtUrl = file ? URL.createObjectURL(file) : null;
+  elements.fileName.textContent = file?.name || "Noch keine Datei ausgewählt";
+  if (state.mode === "image") {
+    setPreviewSource(state.imageArtUrl);
+    triggerAutoAnalysis();
   }
-
-  clearTextArtSource();
-  const url = URL.createObjectURL(file);
-  setPreviewSource(url, { revocable: true });
-  elements.fileName.textContent = file.name;
-  state.inputFileName = file.name;
-  triggerAutoAnalysis();
 }
 
 // ============================================================================
@@ -175,12 +169,7 @@ elements.plannerForm?.addEventListener("submit", async (event) => {
   elements.foldList.innerHTML = "";
   state.previewPending = true;
 
-  const metadata = Object.freeze({
-    text: elements.textInput?.value || state.textArtLabel || "",
-    fontFamily: elements.fontInput?.value || DEFAULT_FONT_FAMILY,
-    fontSize: Number(elements.fontSizeInput?.value) || null,
-    imageFileName: state.inputFileName || null,
-  });
+  const metadata = source.metadata;
   const img = new Image();
   img.onload = () => {
     try {
@@ -295,7 +284,7 @@ function updateBookPreview() {
     if (segmentCount === null || segmentCount === 0) {
       elements.previewStatus.textContent = "Schreibe Text oder lade eine SVG hoch, um Falze vorzuschauen.";
     } else {
-      elements.previewStatus.textContent = state.textArtLabel 
+      elements.previewStatus.textContent = state.mode === "text" && state.textArtLabel
         ? `Vorschau ${state.textArtLabel}` 
         : "Vorschau der Falzdichte";
     }
@@ -350,15 +339,7 @@ async function performTextArtworkRender() {
   const text = (elements.textInput?.value || "").trim();
   if (!text) {
     clearTextArtSource();
-    const [file] = elements.svgInput?.files || [];
-    if (file) {
-      elements.fileName.textContent = file.name;
-      const fallbackUrl = URL.createObjectURL(file);
-      setPreviewSource(fallbackUrl, { revocable: true });
-    } else {
-      elements.fileName.textContent = "Noch keine Grafik ausgewählt";
-      setPreviewSource(null);
-    }
+    if (state.mode === "text") setPreviewSource(null);
     return;
   }
 
@@ -381,7 +362,7 @@ async function performTextArtworkRender() {
   try {
     const url = await createTextArtworkUrl({ text, fontFamily, fontSize, paddingPercent });
     
-    if (jobId !== textRenderJobId) {
+    if (jobId !== textRenderJobId || state.mode !== "text") {
       URL.revokeObjectURL(url);
       return;
     }
@@ -389,9 +370,8 @@ async function performTextArtworkRender() {
     const previousUrl = state.textArtUrl;
     state.textArtUrl = url;
     state.textArtLabel = `Textgrafik: "${text}" · ${fontFamily}`;
-    elements.svgInput.value = "";
+    state.textArtMeta = Object.freeze({ text, fontFamily, fontSize, imageFileName: null });
     setPreviewSource(url, { revocable: true });
-    elements.fileName.textContent = state.textArtLabel;
     
     if (previousUrl && previousUrl !== url) {
       URL.revokeObjectURL(previousUrl);
@@ -415,11 +395,10 @@ async function performTextArtworkRender() {
 
 function clearTextArtSource() {
   if (state.textArtUrl) {
-    if (state.textArtUrl !== previewUrl) {
-      URL.revokeObjectURL(state.textArtUrl);
-    }
+    URL.revokeObjectURL(state.textArtUrl);
     state.textArtUrl = null;
     state.textArtLabel = "";
+    state.textArtMeta = null;
   }
   if (elements.textStatus) {
     elements.textStatus.textContent = "Tippe Text ein, um automatisch ein faltbares Wortzeichen zu erstellen.";
@@ -430,41 +409,24 @@ function clearTextArtSource() {
 // Preview Management
 // ============================================================================
 
-function setPreviewSource(url, options = {}) {
-  const nextUrl = url || null;
-  const shouldRevoke = previewUrl && previewUrlRevocable && previewUrl !== nextUrl;
-  
-  if (shouldRevoke) {
-    try {
-      URL.revokeObjectURL(previewUrl);
-    } catch (error) {
-      console.warn("Unable to revoke preview URL", error);
-    }
-  }
-  
-  previewUrl = nextUrl;
-  previewUrlRevocable = Boolean(options.revocable);
-  
+// Sources own their object URLs; displaying another mode must not revoke them.
+function setPreviewSource(url) {
+  previewUrl = url || null;
   if (!elements.artworkPreview) return;
-  
-  if (nextUrl) {
-    elements.artworkPreview.src = nextUrl;
-  } else {
-    elements.artworkPreview.removeAttribute("src");
-  }
+  if (previewUrl) elements.artworkPreview.src = previewUrl;
+  else elements.artworkPreview.removeAttribute("src");
 }
 
 function resolveArtworkSource() {
-  if (state.textArtUrl) {
-    return { url: state.textArtUrl, revoke: false };
+  if (state.mode === "text") {
+    return state.textArtUrl ? {
+      url: state.textArtUrl, revoke: false, metadata: state.textArtMeta,
+    } : null;
   }
-  
-  const [file] = elements.svgInput?.files || [];
-  if (!file) {
-    return null;
-  }
-  
-  return { url: URL.createObjectURL(file), revoke: true };
+  return state.imageFile ? {
+    url: URL.createObjectURL(state.imageFile), revoke: true,
+    metadata: Object.freeze({ text: "", fontFamily: "", fontSize: null, imageFileName: state.imageFile.name }),
+  } : null;
 }
 
 // ============================================================================
@@ -525,7 +487,7 @@ function attachPdfPreview(blobUrl) {
     elements.pdfDownloadLink.classList.remove("disabled-link");
     elements.pdfDownloadLink.removeAttribute("aria-disabled");
     elements.pdfDownloadLink.removeAttribute("tabindex");
-    elements.pdfDownloadLink.download = buildPdfFileName(state.textArtLabel);
+    elements.pdfDownloadLink.download = buildPdfFileName(state.mode === "text" ? state.textArtLabel : "");
   }
   
   if (elements.pdfStatus) {

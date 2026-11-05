@@ -36,7 +36,8 @@ test('analysis metadata belongs to the captured input snapshot', async () => {
   await app.submit();
   app.element('textInput').value = 'edited without event';
   app.images.at(-1).onload();
-  assert.equal(app.plans.at(-1).meta.text, 'original');
+  assert.equal(app.plans.at(-1).meta.text, '');
+  assert.equal(app.plans.at(-1).meta.imageFileName, 'picture.png');
 });
 
 for (const action of ['clear', 'upload', 'mode', 'edit']) {
@@ -61,3 +62,31 @@ for (const action of ['clear', 'upload', 'mode', 'edit']) {
     if (action === 'upload') assert.equal(app.element('svgInput').files[0].name, 'picture.png');
   });
 }
+
+test('image mode never falls back to text and both modes retain their source', async () => {
+  const app = await createApp();
+  app.element('textInput').value = 'Hello';
+  app.fire('textInput', 'input');
+  await app.flushTimers();
+  await app.settle();
+  const textUrl = app.element('artworkPreview').src;
+  app.fire('imageModeBtn', 'click');
+  await app.submit();
+  assert.equal(app.images.length, 0);
+  app.upload('selected.png');
+  const imageUrl = app.element('artworkPreview').src;
+  await app.submit();
+  app.images.at(-1).onload();
+  assert.equal(app.plans.at(-1).meta.imageFileName, 'selected.png');
+  app.fire('textModeBtn', 'click');
+  await app.flushTimers();
+  await app.settle();
+  await app.submit();
+  app.images.at(-1).onload();
+  assert.equal(app.plans.at(-1).meta.text, 'Hello');
+  assert.equal(app.plans.at(-1).meta.imageFileName, null);
+  app.fire('imageModeBtn', 'click');
+  assert.equal(app.element('artworkPreview').src, imageUrl);
+  assert(!app.revoked.includes(imageUrl));
+  assert(app.revoked.includes(textUrl)); // replaced by the new text render, not the mode switch
+});
