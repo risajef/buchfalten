@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="slate">
+<html lang="de" data-theme="slate">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -14,8 +14,8 @@
           <p class="eyebrow">Präzise Faltplanung</p>
           <h1>Buchfaltstudio</h1>
           <p class="lede">
-            Lade eine schwarz-weisse SVG hoch, wähle, wie viel du scheiben
-            möchtest, und erhalte sofort Buchfaltaleitung.
+            Gib Text ein oder lade ein kontrastreiches Bild hoch und erstelle
+            eine Faltanleitung für dein Buch.
           </p>
         </div>
       </header>
@@ -24,10 +24,10 @@
         <section class="panel controls">
           <h2>Einstellungen</h2>
           <div class="mode-switch">
-            <button type="button" id="textModeBtn" class="mode-btn active">
+            <button type="button" id="textModeBtn" class="mode-btn active" aria-pressed="true" aria-controls="textMode">
               Text
             </button>
-            <button type="button" id="imageModeBtn" class="mode-btn">
+            <button type="button" id="imageModeBtn" class="mode-btn" aria-pressed="false" aria-controls="imageMode">
               Bild
             </button>
           </div>
@@ -94,7 +94,7 @@
                 </label>
               </div>
               <div class="text-actions">
-                <p class="micro-copy" id="textStatus">
+                <p class="micro-copy" id="textStatus" role="status" aria-live="polite" aria-atomic="true">
                   Tippe Text ein, um automatisch ein faltbares Wortzeichen zu
                   erstellen.
                 </p>
@@ -180,7 +180,7 @@
 
           <div class="preview">
             <p>Artwork Vorschau</p>
-            <img id="artworkPreview" alt="SVG Vorschau" />
+            <img id="artworkPreview" alt="Vorschau des ausgewählten Motivs" />
           </div>
         </section>
 
@@ -188,14 +188,14 @@
           <div class="results-header">
             <div>
               <h2>Faltanweisungen</h2>
-              <p class="micro-copy" id="summaryLine">Warte auf eine SVG...</p>
+              <p class="micro-copy" id="summaryLine" role="status" aria-live="polite" aria-atomic="true">Warte auf ein Motiv...</p>
             </div>
           </div>
           <div id="foldList" class="fold-list"></div>
           <div class="book-preview">
             <header>
               <h3>Buchvorschau</h3>
-              <p class="micro-copy" id="previewStatus">
+              <p class="micro-copy" id="previewStatus" role="status" aria-live="polite" aria-atomic="true">
                 Warte auf Faltdaten...
               </p>
             </header>
@@ -210,7 +210,7 @@
           <div class="pdf-preview" id="pdfPreview">
             <header>
               <h3>PDF-Anleitung</h3>
-              <p class="micro-copy" id="pdfStatus">
+              <p class="micro-copy" id="pdfStatus" role="status" aria-live="polite" aria-atomic="true">
                 Generiere Falze, um den PDF-Download zu aktivieren.
               </p>
             </header>

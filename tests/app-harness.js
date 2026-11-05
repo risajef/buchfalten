@@ -27,7 +27,7 @@ export async function createApp(overrides = {}) {
   }
   const defaults = { columnInput: '250', heightInput: '210', thicknessInput: '1', segmentPolicyInput: 'alternate', thresholdInput: '235', alphaInput: '40', fontInput: 'Playfair Display', fontSizeInput: '160', paddingInput: '18' };
   for (const [id, value] of Object.entries(defaults)) element(id).value = value;
-  const document = { getElementById: element, querySelector: s => element(s.slice(1)), readyState: 'complete', createElement: () => ({}) };
+  const document = { setAttribute() {}, getElementById: element, querySelector: s => element(s.slice(1)), readyState: 'complete', createElement: () => ({}) };
   const context = vm.createContext({
     console: { error() {}, warn() {} }, document,
     URL: { createObjectURL: () => `blob:${++nextId}`, revokeObjectURL: u => revoked.push(u) },

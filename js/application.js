@@ -24,6 +24,7 @@ export function mountBuchfaltstudio(root, {
   pdfFactory = () => undefined,
 } = {}) {
   mounts.get(root)?.destroy();
+  root.setAttribute("lang", "de");
   const cleanups = [];
   const pendingImages = new Map();
   const analysisCanvas = doc.createElement("canvas");
@@ -89,6 +90,8 @@ export function mountBuchfaltstudio(root, {
 
   function setMode(mode) {
     state.mode = mode;
+    elements.textModeBtn.setAttribute("aria-pressed", String(mode === "text"));
+    elements.imageModeBtn.setAttribute("aria-pressed", String(mode === "image"));
     invalidateTextRender();
     elements.textModeBtn.classList[mode === "text" ? "add" : "remove"]("active");
     elements.imageModeBtn.classList[mode === "image" ? "add" : "remove"]("active");
@@ -236,7 +239,7 @@ export function mountBuchfaltstudio(root, {
     img.onerror = () => {
       pendingImages.delete(img);
       if (jobId === analysisJobId) {
-        elements.summaryLine.textContent = "SVG konnte nicht gelesen werden. Bitte versuche eine andere Datei.";
+        elements.summaryLine.textContent = "Bild konnte nicht gelesen werden. Bitte versuche eine andere Datei.";
         invalidateResults("error");
       }
       if (source.revoke) {
@@ -254,7 +257,7 @@ export function mountBuchfaltstudio(root, {
     const totalFolds = state.columns.reduce((sum, col) => sum + col.segments.length, 0);
 
     if (!totalFolds) {
-      elements.summaryLine.textContent = "Keine festen Farbbänder erkannt. Versuche, die Rauschschwelle zu senken.";
+      elements.summaryLine.textContent = "Keine Farbbänder erkannt. Verwende ein kontrastreiches Motiv.";
       elements.foldList.innerHTML = "";
       resetPdfPreview();
       updateBookPreview();
@@ -331,7 +334,7 @@ export function mountBuchfaltstudio(root, {
 
     if (elements.previewStatus) {
       if (segmentCount === null || segmentCount === 0) {
-        elements.previewStatus.textContent = "Schreibe Text oder lade eine SVG hoch, um Falze vorzuschauen.";
+        elements.previewStatus.textContent = "Schreibe Text oder lade ein Bild hoch, um Falze vorzuschauen.";
       } else {
         elements.previewStatus.textContent = state.mode === "text" && state.textArtLabel
           ? `Vorschau ${state.textArtLabel}`

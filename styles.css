@@ -219,7 +219,15 @@ h1, h2, h3, h4, .eyebrow {
 }
 
 .file-drop input {
-  display: none;
+  max-width: 100%;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
 }
 
 .field-grid {

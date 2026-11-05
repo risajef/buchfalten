@@ -19,6 +19,7 @@ Each numbered fix is a separate commit; its tests and progress entry are include
 | 12. Regression suite / CI | Done | Native Node regressions plus real jsPDF/checksum tests; real Chromium smoke passed; subrepo-only CI runs both. |
 | Dependency availability / integrity | Done | jsPDF 4.2.1 vendored with license and checksum; runtime CDN removed from standalone bootstrap. Lockfile pins test tooling; npm audit reports zero advisories after replacement. |
 | Standalone stylesheet portability | Done | Removed the stylesheet outside the subrepo; browser smoke rejects missing stylesheets. |
+| Accessibility and language | Done | German language declared, mode pressed state exposed, status live regions, keyboard-accessible upload and visible focus. |
 | Other lower-priority observations | Pending | |
 
 ## Checks
