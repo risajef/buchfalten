@@ -17,7 +17,8 @@ Each numbered fix is a separate commit; its tests and progress entry are include
 | 10. Font loading | Done | Validated names and encoded parameters; whole-operation timeout; failed links removed for retry; requested glyphs loaded with no silent font fallback. |
 | 11. Duplicate code and dependencies | Done | Removed inactive main.js; imported deeply frozen config/shared utilities; analysis canvas and PDF factory injected; root-scoped mount API disposes listeners, timers and blobs. Existing embed entry path preserved. |
 | 12. Regression suite / CI | In progress | Native Node test runner; no runtime dependencies added. |
-| Lower-priority observations | Pending | |
+| Dependency availability / integrity | Done | jsPDF 4.2.1 vendored with license and checksum; runtime CDN removed from standalone bootstrap. Lockfile pins test tooling; npm audit reports zero advisories after replacement. |
+| Other lower-priority observations | Pending | |
 
 ## Checks
 

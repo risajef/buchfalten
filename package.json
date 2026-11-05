@@ -2,5 +2,15 @@
   "name": "buchfaltstudio",
   "private": true,
   "type": "module",
-  "scripts": { "test": "node --experimental-vm-modules tests/run.js" }
+  "scripts": {
+    "test": "node --experimental-vm-modules tests/run.js",
+    "sync-vendor": "node scripts/sync-vendor.mjs"
+  },
+  "devDependencies": {
+    "jspdf": "4.2.1",
+    "puppeteer": "25.16.0"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
 }
