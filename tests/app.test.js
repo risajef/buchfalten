@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createApp } from './app-harness.js';
+import { createApp, deferred } from './app-harness.js';
 
 async function imageApp(overrides) {
   const app = await createApp(overrides);
@@ -38,3 +38,26 @@ test('analysis metadata belongs to the captured input snapshot', async () => {
   app.images.at(-1).onload();
   assert.equal(app.plans.at(-1).meta.text, 'original');
 });
+
+for (const action of ['clear', 'upload', 'mode', 'edit']) {
+  test(`pending text render cannot undo ${action}`, async () => {
+    const pending = deferred();
+    const app = await createApp({ './js/textRenderer.js': {
+      createTextArtworkUrl: () => pending.promise, clampNumber: n => n,
+    } });
+    app.element('textInput').value = 'old text';
+    app.fire('textInput', 'input');
+    await app.flushTimers();
+    if (action === 'upload') app.upload();
+    else if (action === 'mode') app.fire('imageModeBtn', 'click');
+    else {
+      app.element('textInput').value = action === 'clear' ? '' : 'new text';
+      app.fire('textInput', 'input');
+    }
+    pending.resolve('blob:outdated-text');
+    await app.settle();
+    assert(app.revoked.includes('blob:outdated-text'));
+    assert.notEqual(app.element('artworkPreview').src, 'blob:outdated-text');
+    if (action === 'upload') assert.equal(app.element('svgInput').files[0].name, 'picture.png');
+  });
+}

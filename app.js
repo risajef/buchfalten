@@ -60,6 +60,7 @@ let analysisJobId = 0;
 // ============================================================================
 
 elements.textModeBtn?.addEventListener("click", () => {
+  invalidateTextRender();
   elements.textModeBtn.classList.add("active");
   elements.imageModeBtn.classList.remove("active");
   elements.textMode.style.display = "block";
@@ -68,6 +69,7 @@ elements.textModeBtn?.addEventListener("click", () => {
 });
 
 elements.imageModeBtn?.addEventListener("click", () => {
+  invalidateTextRender();
   elements.imageModeBtn.classList.add("active");
   elements.textModeBtn.classList.remove("active");
   elements.imageMode.style.display = "block";
@@ -122,6 +124,7 @@ if ((elements.textInput?.value || "").trim()) {
 
 function handleFileInputChange() {
   analysisJobId += 1;
+  invalidateTextRender();
   const [file] = elements.svgInput.files || [];
   if (!file) {
     if (state.textArtUrl) {
@@ -321,8 +324,17 @@ function maybeAutoPreview() {
 // Text Artwork Rendering
 // ============================================================================
 
+function invalidateTextRender() {
+  textRenderJobId += 1;
+  if (textRenderTimeout) {
+    clearTimeout(textRenderTimeout);
+    textRenderTimeout = null;
+  }
+}
+
 function scheduleTextArtworkRender(delay = 300) {
   analysisJobId += 1;
+  invalidateTextRender();
   const wait = Math.max(0, Number.isFinite(delay) ? delay : 300);
   if (textRenderTimeout) {
     clearTimeout(textRenderTimeout);
@@ -334,6 +346,7 @@ function scheduleTextArtworkRender(delay = 300) {
 }
 
 async function performTextArtworkRender() {
+  const jobId = ++textRenderJobId;
   const text = (elements.textInput?.value || "").trim();
   if (!text) {
     clearTextArtSource();
@@ -361,8 +374,6 @@ async function performTextArtworkRender() {
     CONFIG.TEXT.PADDING_PERCENT.MAX
   );
   
-  const jobId = ++textRenderJobId;
-
   if (elements.textStatus) {
     elements.textStatus.textContent = "Textgrafik wird gerendert...";
   }

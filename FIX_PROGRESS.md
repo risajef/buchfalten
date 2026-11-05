@@ -6,7 +6,7 @@ Each numbered fix is a separate commit; its tests and progress entry are include
 | Review finding | Status | Validation / decision |
 | --- | --- | --- |
 | 1. Analysis races | Done | Snapshot metadata and reject superseded image callbacks, including edits during debounce; 3 controller regression tests. |
-| 2. Pending text render | Pending | |
+| 2. Pending text render | Done | Clearing, editing, uploading and switching mode invalidate pending text jobs; superseded blobs are revoked. |
 | 3. Mode and source | Pending | |
 | 4. Stale downloads | Pending | |
 | 5. PDF scale | Pending | |
