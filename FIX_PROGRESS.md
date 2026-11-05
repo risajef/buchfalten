@@ -16,10 +16,15 @@ Each numbered fix is a separate commit; its tests and progress entry are include
 | 9. Physical model and fold plan | Done | Documented leaves and calibrated width; explicit lossy-alternation / reject choice; immutable selected/detected bands; contain aspect ratio; preview and PDF preserve blank columns and indices. |
 | 10. Font loading | Done | Validated names and encoded parameters; whole-operation timeout; failed links removed for retry; requested glyphs loaded with no silent font fallback. |
 | 11. Duplicate code and dependencies | Done | Removed inactive main.js; imported deeply frozen config/shared utilities; analysis canvas and PDF factory injected; root-scoped mount API disposes listeners, timers and blobs. Existing embed entry path preserved. |
-| 12. Regression suite / CI | In progress | Native Node test runner; no runtime dependencies added. |
+| 12. Regression suite / CI | Done | Native Node regressions plus real jsPDF/checksum tests; real Chromium smoke passed; subrepo-only CI runs both. |
 | Dependency availability / integrity | Done | jsPDF 4.2.1 vendored with license and checksum; runtime CDN removed from standalone bootstrap. Lockfile pins test tooling; npm audit reports zero advisories after replacement. |
 | Other lower-priority observations | Pending | |
 
 ## Checks
 
-Run `npm test` from this subrepo. Controller tests simulate event timing and image completion; they do not replace a real browser check. Initial browser launch in the review sandbox was blocked by socket restrictions.
+Run `npm ci`, `npm test` and `npm run test:browser` from this subrepo.
+The browser smoke check passed locally using Chromium 131 with socket permissions;
+it verifies real font loading (local fixture), canvas analysis, mode retention,
+validation, stale output and real PDF blobs. Node tests separately control race
+completion order, resource ownership and physical geometry. Printed output still
+requires the user's 50 mm calibration check; physical folding was not performed.

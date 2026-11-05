@@ -77,3 +77,15 @@ app.destroy();
 Mounting the same root again disposes its previous instance. Listeners, analysis
 jobs, timers and artwork/PDF object URLs belong to the mounted instance. Analysis
 accepts its canvas explicitly, and PDF export accepts its jsPDF constructor.
+
+## Regression checks
+
+Requires Node 22 or newer. Run `npm ci`, then `npm test` for deterministic controller,
+geometry, font-loading and PDF-layout checks. `npm run test:browser` runs Chromium
+against a temporary local server and checks real canvas analysis, font loading,
+mode changes, validation, stale exports and actual PDF blobs. Its font/PDF network
+requests use local fixtures, so external service availability does not affect it.
+The browser check uses the DejaVu Sans font from a standard Linux installation;
+set `BUCHFALTEN_TEST_FONT` to a local TrueType font path on another platform.
+
+The subrepo's GitHub Actions workflow runs both checks on pushes and pull requests.

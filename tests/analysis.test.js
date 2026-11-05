@@ -50,3 +50,13 @@ test('slicing the full book preserves the horizontal placement of narrow artwork
   const columns = sliceColumns({ data, width: 10, height: 2 }, 10, { darkThreshold: 235, alphaThreshold: 40 });
   assert.deepEqual(columns.filter(c => c.segments.length).map(c => c.columnIndex), [5, 6]);
 });
+
+test('normalization preserves millimeter boundaries and blank artwork', async () => {
+  const { normalizeSegments, computeActiveRange } = await import('../js/analysis.js');
+  const columns = normalizeSegments([{ columnIndex: 1, segments: [{ startPx: 0, endPx: 99 }] }], 2.1, 100);
+  assert.deepEqual(columns[0].segments[0], { startPx: 0, endPx: 99, startMm: 0, endMm: 210, heightMm: 210, startPercent: 0, endPercent: 100 });
+  const imageData = { width: 10, height: 10, data: new Uint8ClampedArray(400).fill(255) };
+  const thresholds = { darkThreshold: 235, alphaThreshold: 40 };
+  assert.equal(sliceColumns(imageData, 10, thresholds).filter(c => c.segments.length).length, 0);
+  assert.deepEqual(computeActiveRange(imageData, thresholds), { start: 0, end: 9, width: 10 });
+});
