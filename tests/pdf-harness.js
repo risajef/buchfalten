@@ -17,8 +17,7 @@ export function pdfCalls(plan) {
     rect(...args) { calls.push({ type: 'rect', args }); }
     addPage() { calls.push({ type: 'page', args: [] }); }
   }
-  globalThis.window = { jspdf: { jsPDF: Pdf } };
-  try { createPdfDocument(plan); } finally { delete globalThis.window; }
+  createPdfDocument(plan, { factory: Pdf });
   return calls;
 }
 

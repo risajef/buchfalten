@@ -43,7 +43,7 @@ test('analysis metadata belongs to the captured input snapshot', async () => {
 for (const action of ['clear', 'upload', 'mode', 'edit']) {
   test(`pending text render cannot undo ${action}`, async () => {
     const pending = deferred();
-    const app = await createApp({ './js/textRenderer.js': {
+    const app = await createApp({ './textRenderer.js': {
       createTextArtworkUrl: () => pending.promise, clampNumber: n => n,
     } });
     app.element('textInput').value = 'old text';
@@ -118,7 +118,7 @@ test('image failure and missing source cannot leave old instructions downloadabl
 });
 
 test('serialization failure leaves export disabled', async () => {
-  const app = await imageApp({ './js/pdf.js': {
+  const app = await imageApp({ './pdf.js': {
     createPdfDocument: () => ({ output() { throw new Error('cannot serialize'); } }),
     buildPdfFileName: () => 'test.pdf',
   } });
@@ -144,4 +144,37 @@ test('one accepted result constructs exactly one PDF', async () => {
   assert.equal(app.plans.length, 1);
   app.fire('pdfDownloadLink', 'click');
   assert.equal(app.plans.length, 1);
+});
+
+test('destroy releases image, PDF and pending analysis URLs and detaches listeners', async () => {
+  const app = await imageApp();
+  const preview = app.element('artworkPreview').src;
+  await app.submit();
+  app.images.at(-1).onload();
+  const pdf = app.element('pdfDownloadLink').href;
+  await app.submit();
+  const pendingImage = app.images.at(-1);
+  const pendingSource = pendingImage.src;
+  app.destroy();
+  app.destroy();
+  for (const url of [preview, pdf, pendingSource]) assert(app.revoked.includes(url));
+  assert.equal(pendingImage.onload, null);
+  assert.equal(app.element('pdfDownloadLink').href, '#');
+  const before = app.images.length;
+  await app.submit();
+  await app.flushTimers();
+  assert.equal(app.images.length, before);
+});
+
+test('destroy invalidates pending text jobs and releases their eventual blob', async () => {
+  const pending = deferred();
+  const app = await createApp({ './textRenderer.js': { createTextArtworkUrl: () => pending.promise } });
+  app.element('textInput').value = 'Hello';
+  app.fire('textInput', 'input');
+  await app.flushTimers();
+  app.destroy();
+  pending.resolve('blob:after-unmount');
+  await app.settle();
+  assert(app.revoked.includes('blob:after-unmount'));
+  assert.equal(app.images.length, 0);
 });

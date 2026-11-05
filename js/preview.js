@@ -1,3 +1,5 @@
+import { clamp01 } from "./utils.js";
+import { CONFIG } from "./config.js";
 /**
  * Book Preview Rendering Module
  * Handles 2D flat book visualization with fold overlays
@@ -9,19 +11,19 @@ export function renderBookPreview(canvas, state) {
   }
 
   const ctx = canvas.getContext("2d");
-  
+
   // Use actual image dimensions for aspect ratio
   const imageWidthPx = state.meta?.widthPx || 1;
   const imageHeightPx = state.meta?.heightPx || 1;
   const imageAspectRatio = imageWidthPx / imageHeightPx;
-  
+
   // Calculate canvas dimensions to maintain image aspect ratio
   const { canvasWidth, canvasHeight } = calculateCanvasDimensions(imageAspectRatio);
-  
+
   // Update canvas dimensions
   canvas.width = canvasWidth;
   canvas.height = canvasHeight;
-  
+
   ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
   drawFlatBook(ctx, canvasWidth, canvasHeight);
@@ -39,16 +41,16 @@ export function renderBookPreview(canvas, state) {
     const ratio = totalColumns <= 1 ? 0.5 : (columnIndex - 1) / (totalColumns - 1);
     drawFlatFold(ctx, ratio, segment, { width: canvasWidth, height: canvasHeight });
   });
-  
+
   return activeSegments.length;
 }
 
 function calculateCanvasDimensions(imageAspectRatio) {
   const canvasMaxWidth = CONFIG.CANVAS.BOOK_PREVIEW_WIDTH;
   const canvasMaxHeight = CONFIG.CANVAS.BOOK_PREVIEW_HEIGHT;
-  
+
   let canvasWidth, canvasHeight;
-  
+
   if (imageAspectRatio > canvasMaxWidth / canvasMaxHeight) {
     // Width is the limiting factor
     canvasWidth = canvasMaxWidth;
@@ -58,7 +60,7 @@ function calculateCanvasDimensions(imageAspectRatio) {
     canvasHeight = canvasMaxHeight;
     canvasWidth = canvasHeight * imageAspectRatio;
   }
-  
+
   return { canvasWidth, canvasHeight };
 }
 
@@ -110,8 +112,4 @@ function drawFlatFold(ctx, ratio, segment, viewport) {
   ctx.strokeStyle = "rgba(120, 83, 45, 0.35)";
   ctx.lineWidth = 1;
   ctx.strokeRect(columnX - foldWidth / 2, startY, foldWidth, endY - startY);
-}
-
-function clamp01(value) {
-  return Math.min(1, Math.max(0, value));
 }

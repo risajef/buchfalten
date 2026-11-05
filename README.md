@@ -56,3 +56,24 @@ Preview and export consume the same selected intervals and original column indic
 For tall books the PDF may contain scaled schematic diagrams. Use its exact
 millimeter table; do not measure a schematic directly. True-size diagrams require
 100% printing and verification of the 50 mm calibration line.
+
+## Modules and embedding
+
+`app.js` is a small compatibility bootstrap for the standalone root
+`buchfaltstudio-app` and the existing parent-site root `buchfaltstudio-root`.
+The previous `main.js` implementation has been removed. `config.js` remains a
+harmless compatibility entry for hosts that still load it as a classic script;
+all active modules import the deeply frozen configuration from `js/config.js`.
+
+For a custom host, provide the app markup inside a root and mount it explicitly:
+
+```js
+import { mountBuchfaltstudio } from './js/application.js';
+const app = mountBuchfaltstudio(root, { pdfFactory: () => window.jspdf?.jsPDF });
+// Before removing the markup:
+app.destroy();
+```
+
+Mounting the same root again disposes its previous instance. Listeners, analysis
+jobs, timers and artwork/PDF object URLs belong to the mounted instance. Analysis
+accepts its canvas explicitly, and PDF export accepts its jsPDF constructor.

@@ -1,39 +1,19 @@
-/**
- * Utility Functions Module
- * Common helper functions used across the application
- */
-
+/** Shared numeric and immutable-data helpers. */
 export function clampNumber(value, min, max) {
-  if (!Number.isFinite(value)) {
-    return min;
-  }
-  return Math.min(Math.max(value, min), max);
+  return Number.isFinite(value) ? Math.min(Math.max(value, min), max) : min;
 }
 
 export function clamp01(value) {
-  return Math.min(1, Math.max(0, value));
-}
-
-export function lerp(a, b, t) {
-  return a + (b - a) * t;
-}
-
-export function lerpPoint(a, b, t) {
-  return { x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t) };
-}
-
-export function debounce(func, wait) {
-  let timeout;
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
+  return clampNumber(value, 0, 1);
 }
 
 export function formatMm(value) {
   return Number(value).toFixed(1);
+}
+
+export function deepFreeze(value) {
+  for (const child of Object.values(value)) {
+    if (child && typeof child === 'object' && !Object.isFrozen(child)) deepFreeze(child);
+  }
+  return Object.freeze(value);
 }

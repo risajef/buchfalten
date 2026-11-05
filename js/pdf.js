@@ -3,8 +3,7 @@
  * Handles PDF document creation and rendering
  */
 
-export function createPdfDocument(state) {
-  const factory = window.jspdf?.jsPDF;
+export function createPdfDocument(state, { factory } = {}) {
   if (!factory) {
     throw new Error("PDF-Engine wird noch geladen. Bitte versuche es erneut.");
   }

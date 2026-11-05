@@ -1,3 +1,4 @@
+import { CONFIG } from "./config.js";
 /**
  * Image Analysis Module
  * Handles image processing, column slicing, and segment detection
@@ -6,7 +7,7 @@
 import { planFolds } from "./planning.js";
 import { validateAnalysisOptions } from "./validation.js";
 
-export function analyzeImage(image, options) {
+export function analyzeImage(image, options, { canvas } = {}) {
   validateAnalysisOptions(options);
   const { columns, bookHeight, darkThreshold, alphaThreshold, pageThicknessMm = CONFIG.PAGE_THICKNESS_MM, segmentPolicy = "alternate" } = options;
   
@@ -34,7 +35,7 @@ export function analyzeImage(image, options) {
     calculateImageLayout(originalWidth, originalHeight, bookAspectRatio, columns);
   
   // Draw scaled image to canvas with proper centering
-  const canvas = document.getElementById('analysisCanvas');
+  if (!canvas?.getContext) throw new Error("Analyse-Canvas fehlt.");
   const imageData = renderImageToCanvas(canvas, image, canvasWidth, canvasHeight, imageWidth, imageHeight, imageX, imageY);
   
   const thresholds = { darkThreshold, alphaThreshold };

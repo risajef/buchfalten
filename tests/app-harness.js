@@ -1,4 +1,5 @@
 import vm from 'node:vm';
+import { CONFIG } from '../js/config.js';
 import { readFile } from 'node:fs/promises';
 
 export async function createApp(overrides = {}) {
@@ -26,7 +27,7 @@ export async function createApp(overrides = {}) {
   }
   const defaults = { columnInput: '250', heightInput: '210', thicknessInput: '1', segmentPolicyInput: 'alternate', thresholdInput: '235', alphaInput: '40', fontInput: 'Playfair Display', fontSizeInput: '160', paddingInput: '18' };
   for (const [id, value] of Object.entries(defaults)) element(id).value = value;
-  const document = { getElementById: element, querySelector: s => element(s.slice(1)), readyState: 'complete' };
+  const document = { getElementById: element, querySelector: s => element(s.slice(1)), readyState: 'complete', createElement: () => ({}) };
   const context = vm.createContext({
     console: { error() {}, warn() {} }, document,
     URL: { createObjectURL: () => `blob:${++nextId}`, revokeObjectURL: u => revoked.push(u) },
@@ -35,31 +36,30 @@ export async function createApp(overrides = {}) {
     setTimeout: fn => { const id = ++nextId; timers.set(id, fn); return id; },
     clearTimeout: id => timers.delete(id), Date,
   });
-  vm.runInContext(await readFile(new URL('../config.js', import.meta.url), 'utf8'), context);
-  const config = vm.runInContext('CONFIG', context);
+  const config = CONFIG;
   const dependencies = {
-    './js/validation.js': {
+    './validation.js': {
       validateAnalysisOptions: options => {
         if (!Number.isInteger(options.columns) || options.columns < 10 || options.columns > 1200 || !Number.isFinite(options.bookHeight) || options.bookHeight < 80 || options.bookHeight > 400) throw new Error('Invalid dimensions');
       },
       validateImageFile: file => { if (file.size > config.LIMITS.MAX_FILE_BYTES || !config.ACCEPTED_IMAGE_TYPES.includes(file.type)) throw new Error('Invalid file'); },
     },
-    './js/analysis.js': { analyzeImage: (_img, options) => ({
+    './analysis.js': { analyzeImage: (_img, options) => ({
       columns: [{ columnIndex: 1, segments: [{ startMm: 0, endMm: 10, heightMm: 10 }] }],
       meta: { widthPx: 100, heightPx: 100, bookHeightMm: options.bookHeight, bookWidthMm: options.columns },
     }) },
-    './js/pdf.js': {
+    './pdf.js': {
       createPdfDocument: plan => { plans.push(structuredClone(plan)); return { output: () => ({}) }; },
       buildPdfFileName: () => 'instructions.pdf',
     },
-    './js/textRenderer.js': { createTextArtworkUrl: async () => `blob:text-${++nextId}`, clampNumber: (n, min, max) => Math.max(min, Math.min(max, n)) },
-    './js/fonts.js': { normalizeFontName: s => s?.trim() || '', buildGoogleFontsShareUrl: () => '' },
-    './js/preview.js': { renderBookPreview: () => 1 },
-    '../config.js': { CONFIG: config },
+    './textRenderer.js': { createTextArtworkUrl: async () => `blob:text-${++nextId}`, clampNumber: (n, min, max) => Math.max(min, Math.min(max, n)) },
+    './fonts.js': { normalizeFontName: s => s?.trim() || '', buildGoogleFontsShareUrl: () => '' },
+    './preview.js': { renderBookPreview: () => 1 },
     './config.js': { CONFIG: config },
+    './utils.js': { clampNumber: (n, min, max) => Math.max(min, Math.min(max, n)) },
     ...overrides,
   };
-  const module = new vm.SourceTextModule(await readFile(new URL('../app.js', import.meta.url), 'utf8'), { context });
+  const module = new vm.SourceTextModule(await readFile(new URL('../js/application.js', import.meta.url), 'utf8'), { context });
   await module.link(specifier => {
     const exports = dependencies[specifier];
     if (!exports) throw new Error(`Missing test dependency: ${specifier}`);
@@ -68,9 +68,10 @@ export async function createApp(overrides = {}) {
     }, { context });
   });
   await module.evaluate();
+  const instance = module.namespace.mountBuchfaltstudio(document);
   const fire = (id, type) => element(id).dispatchEvent({ type, preventDefault() {} });
   return {
-    element, images, revoked, plans, config,
+    element, images, revoked, plans, config, destroy: instance.destroy,
     fire, submit: () => fire('plannerForm', 'submit'),
     upload(name = 'picture.png') { element('svgInput').files = [{ name, type: 'image/png', size: 100 }]; return fire('svgInput', 'change'); },
     async flushTimers() { const pending = [...timers.values()]; timers.clear(); for (const fn of pending) await fn(); },

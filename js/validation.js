@@ -1,3 +1,4 @@
+import { CONFIG } from "./config.js";
 /** Validate at the domain boundary, including automatic submissions. */
 export function validateAnalysisOptions({ columns, bookHeight, darkThreshold, alphaThreshold, pageThicknessMm = CONFIG.PAGE_THICKNESS_MM, segmentPolicy = "alternate" }) {
   if (!Number.isInteger(columns) || columns < CONFIG.PAGES.MIN || columns > CONFIG.PAGES.MAX) {

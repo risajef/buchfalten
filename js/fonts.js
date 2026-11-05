@@ -1,3 +1,5 @@
+import { clampNumber } from "./utils.js";
+import { CONFIG } from "./config.js";
 /** Google Fonts adapter. A failed or timed-out request never silently uses fallback. */
 const stylesheetCaches = new WeakMap();
 
@@ -73,8 +75,4 @@ export function buildFontLoadingDescriptor(fontFamily, fontSize) {
 
 export function buildCanvasFontValue(fontFamily, fontSize) {
   return `${buildFontLoadingDescriptor(fontFamily, fontSize)}, sans-serif`;
-}
-
-function clampNumber(value, min, max) {
-  return Number.isFinite(value) ? Math.min(Math.max(value, min), max) : min;
 }
