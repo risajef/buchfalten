@@ -28,6 +28,8 @@ const elements = {
   fileName: document.getElementById("fileName"),
   columnInput: document.getElementById("columnInput"),
   heightInput: document.getElementById("heightInput"),
+  thicknessInput: document.getElementById("thicknessInput"),
+  segmentPolicyInput: document.getElementById("segmentPolicyInput"),
   thresholdInput: document.getElementById("thresholdInput"),
   alphaInput: document.getElementById("alphaInput"),
   plannerForm: document.getElementById("plannerForm"),
@@ -103,6 +105,8 @@ function triggerAutoAnalysis(delay = CONFIG.DEBOUNCE.AUTO_ANALYSIS) {
 elements.svgInput?.addEventListener("change", handleFileInputChange);
 elements.columnInput?.addEventListener("input", () => triggerAutoAnalysis());
 elements.heightInput?.addEventListener("input", () => triggerAutoAnalysis());
+elements.thicknessInput?.addEventListener("input", () => triggerAutoAnalysis());
+elements.segmentPolicyInput?.addEventListener("change", () => triggerAutoAnalysis());
 
 // Auto-trigger text rendering
 const autoTextInputs = [
@@ -165,8 +169,11 @@ elements.plannerForm?.addEventListener("submit", async (event) => {
   const bookHeight = Number(elements.heightInput.value);
   const darkThreshold = Number(elements.thresholdInput.value);
   const alphaThreshold = Number(elements.alphaInput.value);
+  const pageThicknessMm = Number(elements.thicknessInput.value);
+  const segmentPolicy = elements.segmentPolicyInput.value;
+  const options = Object.freeze({ columns, bookHeight, darkThreshold, alphaThreshold, pageThicknessMm, segmentPolicy });
 
-  try { validateAnalysisOptions({ columns, bookHeight, darkThreshold, alphaThreshold }); }
+  try { validateAnalysisOptions(options); }
   catch (error) {
     elements.summaryLine.textContent = error.message;
     setResultStatus("error");
@@ -187,10 +194,9 @@ elements.plannerForm?.addEventListener("submit", async (event) => {
   img.onload = () => {
     try {
       if (jobId !== analysisJobId) return;
-      const result = analyzeImage(img, { columns, bookHeight, darkThreshold, alphaThreshold });
+      const result = analyzeImage(img, options);
       state.columns = result.columns;
-      state.meta = result.meta;
-      Object.assign(state.meta, metadata);
+      state.meta = Object.freeze({ ...result.meta, ...metadata });
       renderResults();
     } catch (error) {
       console.error(error);
@@ -278,6 +284,9 @@ function updateSummaryText(totalFolds) {
     summaryText += ` (entfernte ${croppedLeft}px linke / ${croppedRight}px rechte leere Ränder)`;
   }
   
+  if (state.meta.omittedSegmentCount) {
+    summaryText += ` Achtung: ${state.meta.omittedSegmentCount} Farbstreifen ausgelassen; pro Blatt wird nur ein Streifen abwechselnd gewählt.`;
+  }
   elements.summaryLine.textContent = summaryText;
 }
 

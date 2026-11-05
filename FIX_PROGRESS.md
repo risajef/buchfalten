@@ -13,7 +13,7 @@ Each numbered fix is a separate commit; its tests and progress entry are include
 | 6. Validation and resource limits | Done | Boundary validation, 10 MB file / 40 MP source limits, bounded 2048-edge / 2 MP rasterization; fractional/out-of-range inputs rejected; height unified at 80–400 mm. |
 | 7. Duplicate PDF work | Done | One export path per accepted result; removed redundant auto-preview and download regeneration paths. |
 | 8. PDF metadata | Done | Source metadata reaches export; wrapped header lines reserve their own space and participate in orientation / scale selection. |
-| 9. Physical model and fold plan | Pending | Preserve existing thickness / allocation policy unless explicitly exposed as a choice. |
+| 9. Physical model and fold plan | Done | Documented leaves and calibrated width; explicit lossy-alternation / reject choice; immutable selected/detected bands; contain aspect ratio; preview and PDF preserve blank columns and indices. |
 | 10. Font loading | Pending | |
 | 11. Duplicate code and dependencies | Pending | |
 | 12. Regression suite / CI | In progress | Native Node test runner; no runtime dependencies added. |

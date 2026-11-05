@@ -28,3 +28,12 @@ test('PDF preserves and wraps source metadata without overlapping the track', ()
   assert(metadataLines.length > 3);
   for (const line of metadataLines) assert(line.args[2] < firstTrack.args[1]);
 });
+
+test('PDF preserves original column numbering and all blank leaves', () => {
+  const plan = examplePlan();
+  plan.columns = Array.from({ length: 80 }, (_, index) => ({ columnIndex: index + 1, segments: index === 40 ? plan.columns[0].segments : [] }));
+  const calls = pdfCalls(plan);
+  const texts = calls.filter(c => c.type === 'text').map(c => c.args[0]);
+  assert(texts.includes('1') && texts.includes('41') && texts.includes('80'));
+  assert.equal(calls.filter(c => c.type === 'rect' && c.args.length === 4).length, 80);
+});

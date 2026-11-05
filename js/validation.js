@@ -1,11 +1,15 @@
 /** Validate at the domain boundary, including automatic submissions. */
-export function validateAnalysisOptions({ columns, bookHeight, darkThreshold, alphaThreshold }) {
+export function validateAnalysisOptions({ columns, bookHeight, darkThreshold, alphaThreshold, pageThicknessMm = CONFIG.PAGE_THICKNESS_MM, segmentPolicy = "alternate" }) {
   if (!Number.isInteger(columns) || columns < CONFIG.PAGES.MIN || columns > CONFIG.PAGES.MAX) {
     throw new Error(`Spaltenanzahl: ganze Zahl von ${CONFIG.PAGES.MIN} bis ${CONFIG.PAGES.MAX}.`);
   }
   if (!Number.isFinite(bookHeight) || bookHeight < CONFIG.HEIGHT.MIN || bookHeight > CONFIG.HEIGHT.MAX) {
     throw new Error(`Buchhöhe: ${CONFIG.HEIGHT.MIN} bis ${CONFIG.HEIGHT.MAX} mm.`);
   }
+  if (!Number.isFinite(pageThicknessMm) || pageThicknessMm < 0.1 || pageThicknessMm > 3) {
+    throw new Error('Breite je gefaltetem Blatt: 0.1 bis 3 mm.');
+  }
+  if (!["alternate", "reject"].includes(segmentPolicy)) throw new Error('Unbekannte Farbstreifen-Regel.');
   for (const value of [darkThreshold, alphaThreshold]) {
     if (!Number.isInteger(value) || value < 0 || value > 255) {
       throw new Error('Bildschwellen müssen ganze Zahlen von 0 bis 255 sein.');

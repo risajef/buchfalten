@@ -3,14 +3,15 @@
  * Handles image processing, column slicing, and segment detection
  */
 
+import { planFolds } from "./planning.js";
 import { validateAnalysisOptions } from "./validation.js";
 
 export function analyzeImage(image, options) {
   validateAnalysisOptions(options);
-  const { columns, bookHeight, darkThreshold, alphaThreshold } = options;
+  const { columns, bookHeight, darkThreshold, alphaThreshold, pageThicknessMm = CONFIG.PAGE_THICKNESS_MM, segmentPolicy = "alternate" } = options;
   
   // Calculate physical book dimensions
-  const bookWidthMm = columns * CONFIG.PAGE_THICKNESS_MM;
+  const bookWidthMm = columns * pageThicknessMm;
   const resolvedBookHeightMm = bookHeight;
   
   // Get original image dimensions
@@ -37,18 +38,17 @@ export function analyzeImage(image, options) {
   const imageData = renderImageToCanvas(canvas, image, canvasWidth, canvasHeight, imageWidth, imageHeight, imageX, imageY);
   
   const thresholds = { darkThreshold, alphaThreshold };
-  // Determine the horizontal active range (non-empty area) and slice only that
-  // region into columns. This trims empty left/right parts of the SVG before
-  // the folding analysis so output columns correspond to visible artwork.
+  // Measure visible content for diagnostics. Slice the full book so containment,
+  // blank leaves and physical page indices remain consistent in every renderer.
   const activeRange = computeActiveRange(imageData, thresholds);
-  const rawColumns = sliceColumns(imageData, columns, thresholds, activeRange);
+  const rawColumns = sliceColumns(imageData, columns, thresholds);
   
   const pxToMm = resolvedBookHeightMm / canvasHeight;
   const enriched = normalizeSegments(rawColumns, pxToMm, canvasHeight);
-  const balanced = balanceSegments(enriched);
+  const plan = planFolds(enriched, segmentPolicy);
 
   return {
-    columns: balanced,
+    columns: plan.columns,
     meta: {
       heightPx: canvasHeight,
       widthPx: canvasWidth,
@@ -60,8 +60,11 @@ export function analyzeImage(image, options) {
       requestedBookHeightMm: bookHeight,
       maxHeightMm: null,
       pxToMm,
-      activeRange: null,
       activeRange,
+      pageThicknessMm,
+      segmentPolicy,
+      omittedSegmentCount: plan.omittedSegmentCount,
+      fitPolicy: "contain",
     }
   };
 }
@@ -72,8 +75,10 @@ export function calculateImageLayout(originalWidth, originalHeight, bookAspectRa
   const { MAX_CANVAS_EDGE, MAX_CANVAS_PIXELS } = CONFIG.LIMITS;
   const referenceHeight = Math.min(originalHeight, MAX_CANVAS_EDGE,
     MAX_CANVAS_EDGE / bookAspectRatio, Math.sqrt(MAX_CANVAS_PIXELS / bookAspectRatio));
-  // At least one horizontal sample per requested column, within a fixed pixel budget.
-  const canvasWidth = Math.max(columns, Math.floor(referenceHeight * bookAspectRatio));
+  // Prefer one sample per leaf when the aspect ratio permits it within the budget.
+  const minimumWidth = Math.min(columns, Math.floor(MAX_CANVAS_EDGE * bookAspectRatio),
+    Math.floor(Math.sqrt(MAX_CANVAS_PIXELS * bookAspectRatio)));
+  const canvasWidth = Math.max(1, minimumWidth, Math.floor(referenceHeight * bookAspectRatio));
   const canvasHeight = Math.max(1, Math.floor(canvasWidth / bookAspectRatio));
 
   // Now fit the image within this canvas while maintaining its aspect ratio
@@ -239,23 +244,5 @@ export function normalizeSegments(columns, pxToMm, heightPx) {
       };
     });
     return { ...col, segments: mappedSegments };
-  });
-}
-
-export function balanceSegments(columns) {
-  let segmentCursor = 0;
-  return columns.map((col) => {
-    if (!col.segments.length) {
-      return col;
-    }
-
-    const index = col.segments.length === 1 ? 0 : Math.floor(segmentCursor) % col.segments.length;
-    const selectedSegment = col.segments[index];
-    segmentCursor += 1;
-
-    return {
-      ...col,
-      segments: selectedSegment ? [selectedSegment] : [],
-    };
   });
 }

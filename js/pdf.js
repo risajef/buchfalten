@@ -35,6 +35,8 @@ export function createPdfDocument(state) {
     if (metadata.fontFamily) addLine(`Schrift: ${metadata.fontFamily}${metadata.fontSize ? ` ${metadata.fontSize}px` : ""}`);
     if (metadata.imageFileName) addLine(`Artwork-Datei: ${metadata.imageFileName}`);
     if (metadata.textLabel) addLine(`Text: ${metadata.textLabel}`);
+    if (state.meta.pageThicknessMm) addLine(`Breite je Blatt: ${state.meta.pageThicknessMm} mm; ${state.columns.length} faltbare Blätter.`);
+    if (state.meta.omittedSegmentCount) addLine(`Achtung: ${state.meta.omittedSegmentCount} Farbstreifen ausgelassen (abwechselnde Auswahl).`);
     return createPdfLayout({
       pageWidth, pageHeight: doc.internal.pageSize.getHeight(),
       bookHeightMm, widthPx, heightPx, timestamp, headerLines,
@@ -47,7 +49,7 @@ export function createPdfDocument(state) {
     doc = new factory({ unit: "mm", format: "a4", orientation: "landscape" });
     layout = makeLayout(doc);
   }
-  const printableColumns = explodeColumns(trimEmptyEdgeColumns(state.columns));
+  const printableColumns = explodeColumns(state.columns);
 
   renderPdfPages(doc, printableColumns, layout);
   renderMeasurementPages(doc, printableColumns, layout);
@@ -115,12 +117,6 @@ function renderPdfPages(doc, printableColumns, layout) {
     const start = p * colsPerPage;
     const end = Math.min(start + colsPerPage, printableColumns.length);
     const pageSlice = printableColumns.slice(start, end);
-
-    // If this page would contain only empty columns, skip it.
-    const hasContent = pageSlice.some((c) => !!c.segment);
-    if (!hasContent) {
-      continue;
-    }
 
     pageNumber += 1;
     if (pagesEmitted === 0) {
@@ -292,28 +288,6 @@ function explodeColumns(columns) {
     });
   });
   return flattened;
-}
-
-function trimEmptyEdgeColumns(columns) {
-  if (!columns || !columns.length) return [];
-
-  let first = 0;
-  while (first < columns.length && (!columns[first].segments || columns[first].segments.length === 0)) {
-    first += 1;
-  }
-  let last = columns.length - 1;
-  while (last >= 0 && (!columns[last].segments || columns[last].segments.length === 0)) {
-    last -= 1;
-  }
-
-  if (first > last) return [];
-
-  const slice = columns.slice(first, last + 1);
-  // Re-index columns so printed numbers start at 1 for the trimmed artwork.
-  return slice.map((col, idx) => ({
-    ...col,
-    columnIndex: idx + 1,
-  }));
 }
 
 export function buildPdfFileName(textArtLabel) {

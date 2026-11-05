@@ -118,7 +118,7 @@
 
             <div class="field-grid">
               <label>
-                <span>Anzahl der Seiten</span>
+                <span>Faltbare Blätter / Spalten</span>
                 <input
                   id="columnInput"
                   type="number"
@@ -126,6 +126,18 @@
                   max="1200"
                   value="250"
                 />
+              </label>
+
+              <label>
+                <span>Breite je gefaltetem Blatt (mm)</span>
+                <input id="thicknessInput" type="number" min="0.1" max="3" step="0.05" value="1" />
+              </label>
+              <label>
+                <span>Mehrere Farbstreifen pro Blatt</span>
+                <select id="segmentPolicyInput">
+                  <option value="alternate">Abwechselnd verteilen (Detailverlust)</option>
+                  <option value="reject">Anhalten und anderes Motiv wählen</option>
+                </select>
               </label>
 
               <label>
