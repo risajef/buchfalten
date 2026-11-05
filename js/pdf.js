@@ -20,37 +20,34 @@ export function createPdfDocument(state) {
 
   const timestamp = new Date().toLocaleString();
 
-  // Use landscape when the book height can be rendered 1:1 within the available
-  // vertical track area on an A4 landscape page.
-  // A4 landscape height is 210mm; with marginY=10 and headerHeight=18 we get 172mm.
-  const marginY = 10;
-  const headerHeight = 30;
-  const trackTop = marginY + headerHeight;
-  const a4LandscapeHeightMm = 210;
-  const landscapeMaxTrackHeightMm = a4LandscapeHeightMm - marginY - trackTop;
-  const orientation = bookHeightMm <= landscapeMaxTrackHeightMm ? "landscape" : "portrait";
-
-  const doc = new factory({ unit: "mm", format: "a4", orientation });
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  // Trim empty columns at the left/right edges before rendering so the SVG
-  // artwork is cropped to its content and folding instructions pack tightly.
-  const trimmedColumns = trimEmptyEdgeColumns(state.columns);
-  let printableColumns = explodeColumns(trimmedColumns);
-  
-  const layout = createPdfLayout({
-    pageWidth,
-    pageHeight,
-    bookHeightMm,
-    widthPx,
-    heightPx,
-    timestamp,
-    // metadata for header
-    textLabel: state.meta?.text || state.textArtLabel || "",
-    fontFamily: state.meta?.fontFamily || "",
-    fontSize: state.meta?.fontSize || null,
-    imageFileName: state.meta?.imageFileName || null,
-  });
+  const metadata = {
+    textLabel: state.meta.text || "",
+    fontFamily: state.meta.fontFamily || "",
+    fontSize: state.meta.fontSize || null,
+    imageFileName: state.meta.imageFileName || null,
+  };
+  const makeLayout = doc => {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const headerLines = [];
+    const addLine = text => headerLines.push(...doc.splitTextToSize(text, pageWidth - 20));
+    if (metadata.fontFamily) addLine(`Schrift: ${metadata.fontFamily}${metadata.fontSize ? ` ${metadata.fontSize}px` : ""}`);
+    if (metadata.imageFileName) addLine(`Artwork-Datei: ${metadata.imageFileName}`);
+    if (metadata.textLabel) addLine(`Text: ${metadata.textLabel}`);
+    return createPdfLayout({
+      pageWidth, pageHeight: doc.internal.pageSize.getHeight(),
+      bookHeightMm, widthPx, heightPx, timestamp, headerLines,
+    });
+  };
+  let doc = new factory({ unit: "mm", format: "a4", orientation: "portrait" });
+  let layout = makeLayout(doc);
+  // Choose landscape only when its available track can remain true-size.
+  if (bookHeightMm <= 210 - 20 - layout.headerHeight) {
+    doc = new factory({ unit: "mm", format: "a4", orientation: "landscape" });
+    layout = makeLayout(doc);
+  }
+  const printableColumns = explodeColumns(trimEmptyEdgeColumns(state.columns));
 
   renderPdfPages(doc, printableColumns, layout);
   renderMeasurementPages(doc, printableColumns, layout);
@@ -59,12 +56,13 @@ export function createPdfDocument(state) {
 }
 
 function createPdfLayout(params) {
-  const { pageWidth, pageHeight, bookHeightMm, widthPx, heightPx, timestamp } = params;
+  const { pageWidth, pageHeight, bookHeightMm, widthPx, heightPx, timestamp, headerLines } = params;
   
   const layout = {
     marginX: 10,
     marginY: 10,
-    headerHeight: 30,
+    headerHeight: 30 + headerLines.length * 4,
+    headerLines,
     axisWidth: 12,
     columnWidth: 4.5,
     columnGap: 1.8,
@@ -159,10 +157,6 @@ function startPdfPage(doc, layout, pageNumber) {
     widthPx,
     heightPx,
     bookHeightMm,
-    textLabel,
-    fontFamily,
-    fontSize,
-    imageFileName,
   } = layout;
 
   // Header
@@ -186,27 +180,9 @@ function startPdfPage(doc, layout, pageNumber) {
   doc.line(rulerX, marginY + 12, rulerX + 50, marginY + 12);
   doc.line(rulerX, marginY + 11, rulerX, marginY + 13);
   doc.line(rulerX + 50, marginY + 11, rulerX + 50, marginY + 13);
-  // Additional metadata: font, text, image filename
-  if (fontFamily) {
-    const fontLine = `Schrift: ${fontFamily}${fontSize ? ` ${fontSize}px` : ""}`;
-    doc.text(fontLine, marginX, marginY + 20);
-  }
-  if (imageFileName) {
-    doc.text(`Artwork-Datei: ${imageFileName}`, marginX, marginY + 25);
-  }
-  if (textLabel) {
-    doc.setFontSize(7);
-    const maxWidth = pageWidth - marginX * 2 - 20;
-    let lines;
-    if (typeof doc.splitTextToSize === "function") {
-      lines = doc.splitTextToSize(textLabel, maxWidth);
-    } else {
-      const truncated = textLabel.length > 120 ? textLabel.slice(0, 117) + "..." : textLabel;
-      lines = [truncated];
-    }
-    doc.text(lines, marginX, marginY + 30);
-    doc.setFontSize(8);
-  }
+  layout.headerLines.forEach((line, index) => {
+    doc.text(line, marginX, marginY + 30 + index * 4);
+  });
   doc.text(`Seite ${pageNumber}`, pageWidth - marginX - 18, marginY + 4);
   
   // Vertical axis

@@ -15,3 +15,16 @@ for (const height of [80, 210, 400]) {
     assert.equal(band.args[3], height === 400 ? 50 * (247 / 400) : 50);
   });
 }
+
+test('PDF preserves and wraps source metadata without overlapping the track', () => {
+  const plan = examplePlan();
+  Object.assign(plan.meta, { text: 'MARKER_TEXT', fontFamily: 'MARKER_FONT', fontSize: 160, imageFileName: 'MARKER_FILE_' + 'long-name'.repeat(20) });
+  const calls = pdfCalls(plan);
+  const text = calls.filter(c => c.type === 'text').map(c => c.args[0]).flat().join('\n');
+  for (const value of ['MARKER_TEXT', 'MARKER_FONT', 'MARKER_FILE']) assert(text.includes(value));
+  const firstTrack = calls.find(c => c.type === 'rect');
+  const headers = calls.slice(0, calls.findIndex(c => c.type === 'rect')).filter(c => c.type === 'text');
+  const metadataLines = headers.slice(0, headers.findIndex(c => String(c.args[0]).startsWith('Seite '))).filter(c => c.args[2] >= 40);
+  assert(metadataLines.length > 3);
+  for (const line of metadataLines) assert(line.args[2] < firstTrack.args[1]);
+});
